@@ -1,0 +1,39 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <title>L20n tinker</title>
+    <link href="lib/bootstrap/css/bootstrap.css" rel="stylesheet">
+    <link href="style.css" rel="stylesheet">
+
+    <script type="text/javascript" src="lib/l20n.js"></script>
+  </head>
+  <body>
+    <header class="navbar navbar-static-top">
+      <div class="navbar-inner">
+        <a id="logo" class="brand" href="#">L20n tinker</a>
+        <button id="share" class="btn btn-info" type="button">Share</button>
+      </div>
+    </header>
+
+    <div class="container-fluid">
+      <div class="row-fluid">
+        <section class="span2">
+          <div id="source"></div>
+          <div id="context"></div>
+        </section>
+
+        <section class="span2">
+          <dl id="output"></dl>
+          <dl id="errors"></dl>
+        </section>
+      </div>
+    </div>
+
+    <script src="lib/jquery-1.9.0.min.js"></script>
+    <script src="lib/bootstrap/js/bootstrap.js"></script>
+    <script src="lib/ace/ace.js" type="text/javascript" charset="utf-8"></script>
+    <script src="default.js" type="text/javascript" charset="utf-8"></script>
+    <script src="script.js" type="text/javascript" charset="utf-8"></script>
+  </body>
+</html>

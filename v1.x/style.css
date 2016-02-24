@@ -1,0 +1,117 @@
+html {
+  height: 100%;
+}
+
+body {
+  height: 100%;
+  overflow: hidden;
+}
+
+#logo {
+  font-weight: bold;
+  color: #000000;
+}
+
+.popover-title {
+  padding-left: 8px;
+}
+
+#share-url {
+    margin-left: -6px;
+}
+
+.container-fluid .row-fluid {
+  bottom: 0;
+  top: 41px;
+  left: 0;
+  right: 0;
+  position: absolute;
+}
+
+.container-fluid .row-fluid .span2 {
+  background: #FFFFFF;
+  position: relative;
+  height: 100%;
+  width: 50%;
+  margin: 0;
+}
+
+#source,
+#output {
+  height: 70%;
+}
+
+#source {
+  background-color: rgb(253, 246, 227);
+}
+
+#context,
+#errors {
+  border-top: 1px solid #EBEBEB;
+  height: 30%;
+}
+
+#source,
+#context {
+  border-right: 1px solid #EBEBEB;
+}
+
+.ace_scrollbar {
+  overflow-x: hidden;
+  overflow-y: auto !important;
+}
+
+.ace_line {
+  color: #999999 !important;
+}
+
+.ace_entity {
+  color: #D33682 !important;
+}
+
+dl {
+  margin: 0;
+}
+
+dd {
+  margin: 0;
+}
+
+#output {
+  overflow-y: auto;
+}
+
+#output div {
+  margin: 5px 0 0 8px;
+}
+
+#output dt {
+  display: inline-block;
+  width: 30%;
+}
+
+#output dt code {
+  color: #DD1144;
+  font-weight: normal;
+}
+
+#output dt code.disabled {
+  color: #999999;
+}
+
+#output dd {
+  width: 70%;
+  color: #666666;
+  display: inline-block;
+  vertical-align: top;
+  font-size: 13px;
+}
+
+#errors {
+  overflow-y: auto;
+  padding: 5px 8px;
+}
+
+#errors dt {
+  color: #DD1144;
+}
