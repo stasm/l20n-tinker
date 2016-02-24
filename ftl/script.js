@@ -47,6 +47,7 @@ $(function() {
   /* ACE */
 
   var source = ace.edit("source");
+  source.setBehavioursEnabled(false);
   source.setShowPrintMargin(false);
   source.setDisplayIndentGuides(false);
   source.getSession().setUseWrapMode(true);
