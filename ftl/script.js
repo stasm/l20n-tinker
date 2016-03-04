@@ -2,6 +2,7 @@ $(function() {
 
   var config = {
     escapeHtml: true,
+    lang: 'en-US',
   };
 
 
@@ -30,14 +31,15 @@ $(function() {
         [cur.id]: cur
       }), {}
     );
+    var lang = { code: config.lang };
     var ctx = new L20n.MockContext(entries);
 
     for (var id in entries) {
-      var [errs, val] = L20n.format(ctx, L20n.lang, args, entries[id]);
+      var result = L20n.format(ctx, lang, args, entries[id]);
       $("#output").append(
-        "<div><dt><code>" + id + "</code></dt><dd>" + escapeHtml(val) +
+        "<div><dt><code>" + id + "</code></dt><dd>" + escapeHtml(result[1]) +
         "</dd></div>");
-      errs.forEach(e => {
+      result[0].forEach(e => {
         $("#errors").append(
           "<dt>" + e.name + " in entity <code>" + id + 
           "</code></dt><dd>" + escapeHtml(e.message) + "</dd>");
@@ -107,6 +109,7 @@ $(function() {
     var state = {
       source: source.getValue(),
       context: context.getValue(),
+      config: config
     };
     return window.location.href.split("#")[0] + '#' +
       utf8_to_b64(JSON.stringify(state));
@@ -119,6 +122,9 @@ $(function() {
   var state = JSON.parse(b64_to_utf8(hash));
   context.setValue(state.context);
   source.setValue(state.source);
+  if (state.config) {
+    config = state.config;
+  }
   source.clearSelection();
   source.gotoLine(0);
   context.clearSelection();
@@ -135,6 +141,11 @@ $(function() {
 
   $('#escape-html').click(function() {
     config.escapeHtml = !config.escapeHtml;
+    update();
+  });
+
+  $('#lang').change(function(evt) {
+    config.lang = $(this).val();
     update();
   });
 
