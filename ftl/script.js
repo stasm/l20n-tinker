@@ -33,6 +33,15 @@ $(function() {
       );
     });
 
+    const anots = ast._errors.map(e => ({
+      type: 'error',
+      text: e.message,
+      row: e._pos.row - 1,
+      column: e._pos.col,
+    }));
+
+    source.getSession().setAnnotations(anots);
+
     var entries = ast.body.reduce(
       (seq, cur) => Object.assign(seq, {
         [cur.id]: cur
@@ -76,6 +85,7 @@ $(function() {
   source.setShowPrintMargin(false);
   source.setDisplayIndentGuides(false);
   source.getSession().setUseWrapMode(true);
+  source.getSession().setOption("useWorker", false);
   source.setTheme("ace/theme/solarized_light");
   source.getSession().setMode("ace/mode/properties");
   source.getSession().on('change', update);
