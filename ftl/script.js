@@ -22,9 +22,16 @@ $(function() {
     try {
       var ast = L20n.FTLASTParser.parseResource(code);
     } catch(e) {
-      log(e);
-      return;
+      logUnexpected(e);
     }
+
+    ast._errors.forEach(e => {
+      $("#errors").append(
+        "<dt>" + e.name + " in line " + e._pos.row + ", column " + e._pos.col +"</dt>" +
+        "<dd>" + escapeHtml(e.description) + "</dd>" +
+        "<dd><pre>" + prettyContext(e.context, e.offset) + "</pre></dd>"
+      );
+    });
 
     var entries = ast.body.reduce(
       (seq, cur) => Object.assign(seq, {
@@ -35,15 +42,30 @@ $(function() {
     var ctx = new L20n.MockContext(entries);
 
     for (var id in entries) {
-      var result = L20n.format(ctx, lang, args, entries[id]);
-      $("#output").append(
-        "<div><dt><code>" + id + "</code></dt><dd>" + escapeHtml(result[1]) +
-        "</dd></div>");
-      result[0].forEach(e => {
-        $("#errors").append(
-          "<dt>" + e.name + " in entity <code>" + id + 
-          "</code></dt><dd>" + escapeHtml(e.message) + "</dd>");
-      });
+      const entry = entries[id];
+      if (entry.type === 'JunkEntry') {
+        $("#output").append(
+          "<div><dt><code class='disabled'>JunkEntry</code></dt>" +
+          "<dd><pre>" + escapeHtml(entry.content, true) + "</pre></dd></div>"
+        );
+        continue;
+      }
+
+      try {
+        var result = L20n.format(ctx, lang, args, entries[id]);
+        $("#output").append(
+          "<div><dt><code>" + id + "</code></dt>" +
+          "<dd>" + escapeHtml(result[1]) + "</dd></div>"
+        );
+        result[0].forEach(e => {
+          $("#errors").append(
+            "<dt>" + e.name + " in entity <code>" + id + "</code></dt>" +
+            "<dd>" + escapeHtml(e.message) + "</dd>"
+          );
+        });
+      } catch(e) {
+        logUnexpected(e);
+      }
     }
   }
 
@@ -70,10 +92,10 @@ $(function() {
   /* Errors */
 
   function noop() { }
-  function log(e) {
+  function logUnexpected(e) {
     $("#errors").append(
-      "<dt>" + e.name + " near row " + e.line + ", column " + e.column +
-      "</dt><dd>" + escapeHtml(e.message) + "</dd>");
+      "<dt>" + e.name + "</dt><dd>" + escapeHtml(e.message) + "</dd>"
+    );
   }
 
   var entityMap = {
@@ -89,9 +111,22 @@ $(function() {
     return entityMap[char];
   }
 
-  function escapeHtml(str) {
-    return config.escapeHtml && str ?
+  function escapeHtml(str, force) {
+    return str && (config.escapeHtml || force) ?
       str.replace(/[&<>"'\/]/g, replaceHtml) : str;
+  }
+
+  function prettyContext(content, offset) {
+    const [ before, char, after ] = [
+      content.substring(0, offset),
+      content.substring(offset, offset + 1),
+      content.substring(offset + 1)
+    ].map(part => escapeHtml(part, true));
+
+    const hilite = char === '\n' ?
+      ' \n' : char;
+
+    return `${before}<em>${hilite}</em>${after}`;
   }
 
 

@@ -80,6 +80,7 @@ dl {
 
 dd {
   margin: 0;
+  white-space: pre-wrap;
 }
 
 #output {
@@ -87,7 +88,7 @@ dd {
 }
 
 #output div {
-  margin: 5px 0 0 8px;
+  margin: 5px 8px 0;
 }
 
 #output dt {
@@ -119,4 +120,9 @@ dd {
 
 #errors dt {
   color: #DD1144;
+}
+
+#errors pre em {
+  font-style: normal;
+  background-color: #FEBECE;
 }
