@@ -42,16 +42,21 @@ $(function() {
 
     source.getSession().setAnnotations(anots);
 
-    var entries = ast.body.reduce(
-      (seq, cur) => Object.assign(seq, {
-        [cur.id]: cur
-      }), {}
-    );
+    var entities = ast.body
+      .filter(entry => entry.type === 'Entity')
+      .reduce(
+        (seq, cur) => Object.assign(seq, {
+          [cur.id]: cur
+        }), {}
+      );
     var lang = { code: config.lang };
-    var ctx = new L20n.MockContext(entries);
+    var ctx = new L20n.MockContext(entities);
 
-    for (var id in entries) {
-      const entry = entries[id];
+    for (var entry of ast.body) {
+      if (entry.type === 'Comment') {
+        continue;
+      }
+
       if (entry.type === 'JunkEntry') {
         $("#output").append(
           "<div><dt><code class='disabled'>JunkEntry</code></dt>" +
@@ -60,20 +65,22 @@ $(function() {
         continue;
       }
 
-      try {
-        var result = L20n.format(ctx, lang, args, entries[id]);
-        $("#output").append(
-          "<div><dt><code>" + id + "</code></dt>" +
-          "<dd>" + escapeHtml(result[1]) + "</dd></div>"
-        );
-        result[0].forEach(e => {
-          $("#errors").append(
-            "<dt>" + e.name + " in entity <code>" + id + "</code></dt>" +
-            "<dd>" + escapeHtml(e.message) + "</dd>"
+      if (entry.type === 'Entity') {
+        try {
+          var result = L20n.format(ctx, lang, args, entry);
+          $("#output").append(
+            "<div><dt><code>" + entry.id + "</code></dt>" +
+            "<dd>" + escapeHtml(result[1]) + "</dd></div>"
           );
-        });
-      } catch(e) {
-        logUnexpected(e);
+          result[0].forEach(e => {
+            $("#errors").append(
+              "<dt>" + e.name + " in entity <code>" + entry.id + "</code></dt>" +
+              "<dd>" + escapeHtml(e.message) + "</dd>"
+            );
+          });
+        } catch(e) {
+          logUnexpected(e);
+        }
       }
     }
   }
