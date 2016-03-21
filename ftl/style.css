@@ -7,6 +7,16 @@ body {
   overflow: hidden;
 }
 
+.navbar-inner {
+    display: flex;
+    align-items: center;
+}
+
+.rev {
+    flex: 1 1 auto;
+    text-align: right;
+}
+
 #logo {
   font-weight: bold;
   color: #000000;
