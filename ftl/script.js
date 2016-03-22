@@ -5,6 +5,29 @@ $(function() {
     lang: 'en-US',
   };
 
+  function toEntries([entries, curSection], entry) {
+    if (entry.type === 'Section') {
+      return [entries, entry.name];
+    }
+
+    if (curSection && !entry.ns) {
+      entry.ns = curSection;
+    }
+
+    return [
+      Object.assign(entries, {
+        [getId(entry)]: entry
+      }),
+      curSection
+    ];
+  }
+
+  function getId(entry) {
+    return entry.ns ?
+      `${entry.ns}/${entry.id}` :
+      entry.id;
+  }
+
 
   /* L20n */
 
@@ -42,13 +65,10 @@ $(function() {
 
     source.getSession().setAnnotations(anots);
 
-    var entities = ast.body
-      .filter(entry => entry.type === 'Entity')
-      .reduce(
-        (seq, cur) => Object.assign(seq, {
-          [cur.id]: cur
-        }), {}
-      );
+    var [entities] = ast.body
+      .filter(entry => entry.type === 'Entity' || entry.type === 'Section')
+      .reduce(toEntries, [{}, null]);
+
     var lang = { code: config.lang };
     var ctx = new L20n.MockContext(entities);
 
@@ -69,12 +89,12 @@ $(function() {
         try {
           var result = L20n.format(ctx, lang, args, entry);
           $("#output").append(
-            "<div><dt><code>" + entry.id + "</code></dt>" +
+            "<div><dt><code>" + getId(entry) + "</code></dt>" +
             "<dd>" + escapeHtml(result[1]) + "</dd></div>"
           );
           result[0].forEach(e => {
             $("#errors").append(
-              "<dt>" + e.name + " in entity <code>" + entry.id + "</code></dt>" +
+              "<dt>" + e.name + " in entity <code>" + getId(entry) + "</code></dt>" +
               "<dd>" + escapeHtml(e.message) + "</dd>"
             );
           });
