@@ -27,6 +27,7 @@ $(function() {
     var code = source.getValue();
     try {
       var ast = L20n.FTLASTParser.parseResource(code);
+      var runtime = L20n.createEntriesFromAST(ast);
     } catch(e) {
       logUnexpected(e);
     }
@@ -49,9 +50,7 @@ $(function() {
     source.getSession().setAnnotations(anots);
 
     var lang = { code: config.lang };
-    var ctx = new L20n.MockContext(
-      L20n.createEntriesFromAST(ast)
-    );
+    var ctx = new L20n.MockContext(runtime.entries);
 
     for (var entry of ast.body) {
       if (entry.type === 'Comment') {
@@ -67,15 +66,16 @@ $(function() {
       }
 
       if (entry.type === 'Entity') {
+        var id = getPrettyId(entry);
         try {
-          var result = L20n.format(ctx, lang, args, entry);
+          var result = L20n.format(ctx, lang, args, runtime.entries[id]);
           $("#output").append(
-            "<div><dt><code>" + getPrettyId(entry) + "</code></dt>" +
+            "<div><dt><code>" + id + "</code></dt>" +
             "<dd>" + escapeHtml(result[1]) + "</dd></div>"
           );
           result[0].forEach(e => {
             $("#errors").append(
-              "<dt>" + e.name + " in entity <code>" + getPrettyId(entry) + "</code></dt>" +
+              "<dt>" + e.name + " in entity <code>" + id + "</code></dt>" +
               "<dd>" + escapeHtml(e.message) + "</dd>"
             );
           });

@@ -1670,7 +1670,7 @@
         for (var _iterator4 = members[Symbol.iterator](), _step4; !(_iteratorNormalCompletion4 = (_step4 = _iterator4.next()).done); _iteratorNormalCompletion4 = true) {
           var member = _step4.value;
 
-          if (member.default) {
+          if (member.def) {
             return unit(member);
           }
         }
@@ -1689,18 +1689,18 @@
         }
       }
 
-      return fail([new L10nError('No default.')], unit(new FTLNone()));
+      return fail([new L10nError('No default')], unit(new FTLNone()));
     }
 
     function Expression(res, expr) {
       switch (expr.type) {
-        case 'EntityReference':
+        case 'ref':
           return EntityReference(res, expr);
-        case 'BuiltinReference':
+        case 'blt':
           return BuiltinReference(res, expr);
-        case 'MemberExpression':
+        case 'mem':
           return MemberExpression(res, expr);
-        case 'SelectExpression':
+        case 'sel':
           return SelectExpression(res, expr);
         default:
           return unit(expr);
@@ -1708,29 +1708,27 @@
     }
 
     function EntityReference(res, expr) {
-      var entity = res.ctx._getEntity(res.lang, expr);
+      var entity = res.ctx._getEntity(res.lang, expr.name);
 
       if (!entity) {
-        var id = new FTLKeyword(expr.name, expr.namespace).format(res);
-        return fail([new L10nError('Unknown entity: ' + id)], unit(new FTLText(id)));
+        return fail([new L10nError('Unknown entity: ' + expr.name)], unit(new FTLText(expr.name)));
       }
 
       return unit(entity);
     }
 
     function BuiltinReference(res, expr) {
-      var id = new FTLKeyword(expr.name, expr.namespace).format(res);
-      var builtin = builtins[id];
+      var builtin = builtins[expr.name];
 
       if (!builtin) {
-        return fail([new L10nError('Unknown built-in: ' + id + '()')], unit(new FTLText(id + '()')));
+        return fail([new L10nError('Unknown built-in: ' + expr.name + '()')], unit(new FTLText(expr.name + '()')));
       }
 
       return unit(builtin);
     }
 
     function MemberExpression(res, expr) {
-      var _Expression = Expression(res, expr.idref);
+      var _Expression = Expression(res, expr.obj);
 
       var _Expression2 = babelHelpers.slicedToArray(_Expression, 2);
 
@@ -1741,7 +1739,7 @@
         return fail(errs1, Value(res, entity));
       }
 
-      var _Value3 = Value(res, expr.keyword);
+      var _Value3 = Value(res, expr.key);
 
       var _Value4 = babelHelpers.slicedToArray(_Value3, 2);
 
@@ -1784,7 +1782,7 @@
     }
 
     function SelectExpression(res, expr) {
-      var _Value7 = Value(res, expr.expression);
+      var _Value7 = Value(res, expr.exp);
 
       var _Value8 = babelHelpers.slicedToArray(_Value7, 2);
 
@@ -1792,7 +1790,7 @@
       var selector = _Value8[1];
 
       if (selErrs.length) {
-        return fail(selErrs, DefaultMember(expr.variants));
+        return fail(selErrs, DefaultMember(expr.vars));
       }
 
       var _iteratorNormalCompletion6 = true;
@@ -1800,7 +1798,7 @@
       var _iteratorError6 = undefined;
 
       try {
-        for (var _iterator6 = expr.variants[Symbol.iterator](), _step6; !(_iteratorNormalCompletion6 = (_step6 = _iterator6.next()).done); _iteratorNormalCompletion6 = true) {
+        for (var _iterator6 = expr.vars[Symbol.iterator](), _step6; !(_iteratorNormalCompletion6 = (_step6 = _iterator6.next()).done); _iteratorNormalCompletion6 = true) {
           var variant = _step6.value;
 
           var _Value9 = Value(res, variant.key);
@@ -1828,10 +1826,22 @@
         }
       }
 
-      return DefaultMember(expr.variants);
+      return DefaultMember(expr.vars);
     }
 
     function Value(res, expr) {
+      if (typeof expr === 'string') {
+        return unit(new FTLText(expr));
+      }
+
+      if (Array.isArray(expr)) {
+        return Pattern(res, expr);
+      }
+
+      if (expr instanceof FTLNone) {
+        return unit(expr);
+      }
+
       var _Expression3 = Expression(res, expr);
 
       var _Expression4 = babelHelpers.slicedToArray(_Expression3, 2);
@@ -1844,40 +1854,33 @@
       }
 
       switch (node.type) {
-        case 'TextElement':
-          return unit(new FTLText(node.value));
-        case 'Identifier':
-          return unit(new FTLKeyword(node.name, node.namespace));
-        case 'Number':
-          return unit(new FTLNumber(node.value));
-        case 'ExternalArgument':
+        case 'id':
+          return unit(new FTLKeyword(node.name, node.ns));
+        case 'num':
+          return unit(new FTLNumber(node.val));
+        case 'ext':
           return ExternalArgument(res, node);
-        case 'Placeable':
-          return mapValues(res, node.expressions);
-        case 'KeyValueArg':
+        case 'kv':
           return KeyValueArg(res, expr);
-        case 'CallExpression':
+        case 'call':
           return CallExpression(res, expr);
-        case 'Pattern':
-          return Pattern(res, node);
-        case 'Member':
-          return Pattern(res, node.value);
-        case 'Entity':
-          return Entity(res, node);
         default:
-          return unit(node);
+          if (node.key) {
+            return Value(res, node.val);
+          }
+          return Entity(res, node);
       }
     }
 
     function ExternalArgument(res, expr) {
-      var id = expr.id;
+      var name = expr.name;
       var args = res.args;
 
-      if (!args || !args.hasOwnProperty(id)) {
-        return fail([new L10nError('Unknown external: ' + id)], unit(new FTLNone(id)));
+      if (!args || !args.hasOwnProperty(name)) {
+        return fail([new L10nError('Unknown external: ' + name)], unit(new FTLNone(name)));
       }
 
-      var arg = args[id];
+      var arg = args[name];
 
       switch (typeof arg === 'undefined' ? 'undefined' : babelHelpers.typeof(arg)) {
         case 'number':
@@ -1885,23 +1888,23 @@
         case 'string':
           return unit(new FTLText(arg));
         default:
-          return fail([new L10nError('Unsupported external type: ' + id + ', ' + (typeof arg === 'undefined' ? 'undefined' : babelHelpers.typeof(arg)))], unit(new FTLNone(id)));
+          return fail([new L10nError('Unsupported external type: ' + name + ', ' + (typeof arg === 'undefined' ? 'undefined' : babelHelpers.typeof(arg)))], unit(new FTLNone(name)));
       }
     }
 
     function KeyValueArg(res, expr) {
-      var _Value11 = Value(res, expr.value);
+      var _Value11 = Value(res, expr.val);
 
       var _Value12 = babelHelpers.slicedToArray(_Value11, 2);
 
       var errs = _Value12[0];
       var value = _Value12[1];
 
-      return [errs, new FTLKeyValueArg(value, expr.id)];
+      return [errs, new FTLKeyValueArg(value, expr.name)];
     }
 
     function CallExpression(res, expr) {
-      var _Expression5 = Expression(res, expr.callee);
+      var _Expression5 = Expression(res, expr.name);
 
       var _Expression6 = babelHelpers.slicedToArray(_Expression5, 2);
 
@@ -1947,8 +1950,12 @@
     }
 
     function Entity(res, entity) {
-      if (entity.value !== null) {
-        return Pattern(res, entity.value);
+      if (!entity.traits) {
+        return Value(res, entity);
+      }
+
+      if (entity.val !== undefined) {
+        return Value(res, entity.val);
       }
 
       var _DefaultMember = DefaultMember(entity.traits);
@@ -1960,28 +1967,31 @@
 
 
       if (errs.length) {
-        var id = new FTLKeyword(entity.id.name, entity.id.namespace).format(res);
-        return fail([].concat(babelHelpers.toConsumableArray(errs), [new L10nError('No value: ' + id)]), unit(new FTLText(id)));
+        return fail([].concat(babelHelpers.toConsumableArray(errs), [new L10nError('No value')]), unit(new FTLNone()));
       }
 
-      return Pattern(res, def.value);
+      return Value(res, def.val);
     }
 
     function formatPattern(res, ptn) {
-      return ptn.elements.reduce(function (_ref17, elem) {
+      return ptn.reduce(function (_ref17, elem) {
         var _ref18 = babelHelpers.slicedToArray(_ref17, 2);
 
         var errSeq = _ref18[0];
         var valSeq = _ref18[1];
 
-        var _Value13 = Value(res, elem);
+        if (typeof elem === 'string') {
+          return [errSeq, new FTLText(valSeq.format(res) + elem)];
+        } else {
+          var _mapValues3 = mapValues(res, elem);
 
-        var _Value14 = babelHelpers.slicedToArray(_Value13, 2);
+          var _mapValues4 = babelHelpers.slicedToArray(_mapValues3, 2);
 
-        var errs = _Value14[0];
-        var value = _Value14[1];
+          var errs = _mapValues4[0];
+          var value = _mapValues4[1];
 
-        return [[].concat(babelHelpers.toConsumableArray(errSeq), babelHelpers.toConsumableArray(errs)), elem.type === 'Placeable' ? new FTLText(valSeq.format(res) + FSI + value.format(res) + PDI) : new FTLText(valSeq.format(res) + value.format(res))];
+          return [[].concat(babelHelpers.toConsumableArray(errSeq), babelHelpers.toConsumableArray(errs)), new FTLText(valSeq.format(res) + FSI + value.format(res) + PDI)];
+        }
       }, [[], new FTLText('')]);
     }
 
@@ -2152,11 +2162,7 @@
         }
       }, {
         key: '_getEntity',
-        value: function _getEntity(lang, _ref21) {
-          var namespace = _ref21.namespace;
-          var name = _ref21.name;
-
-          var id = (namespace || '') + ':' + name;
+        value: function _getEntity(lang, name) {
           var cache = this.env.resCache;
 
           for (var i = 0, resId; resId = this.resIds[i]; i++) {
@@ -2164,16 +2170,16 @@
             if (resource instanceof L10nError) {
               continue;
             }
-            if (id in resource) {
-              return resource[id];
+            if (name in resource) {
+              return resource[name];
             }
           }
           return undefined;
         }
       }, {
         key: '_memoizeIntlObject',
-        value: function _memoizeIntlObject(ctor, _ref22, opts) {
-          var code = _ref22.code;
+        value: function _memoizeIntlObject(ctor, _ref21, opts) {
+          var code = _ref21.code;
 
           return new ctor(code, opts);
         }
@@ -2200,729 +2206,1248 @@
       return resolved;
     }
 
-    var MAX_PLACEABLES = 100;
-
-    var PropertiesParser = {
-      patterns: null,
-      entryIds: null,
-      emit: null,
-
-      init: function init() {
-        this.patterns = {
-          comment: /^\s*#|^\s*$/,
-          entity: /^([^=\s]+)\s*=\s*(.*)$/,
-          multiline: /[^\\]\\$/,
-          index: /\{\[\s*(\w+)(?:\(([^\)]*)\))?\s*\]\}/i,
-          unicode: /\\u([0-9a-fA-F]{1,4})/g,
-          entries: /[^\r\n]+/g,
-          controlChars: /\\([\\\n\r\t\b\f\{\}\"\'])/g,
-          placeables: /\{\{\s*([^\s]*?)\s*\}\}/
-        };
-      },
-
-      parse: function parse(emit, source) {
-        if (!this.patterns) {
-          this.init();
-        }
-        this.emit = emit;
-
-        var entries = {};
-
-        var lines = source.match(this.patterns.entries);
-        if (!lines) {
-          return entries;
-        }
-        for (var i = 0; i < lines.length; i++) {
-          var line = lines[i];
-
-          if (this.patterns.comment.test(line)) {
-            continue;
-          }
-
-          while (this.patterns.multiline.test(line) && i < lines.length) {
-            line = line.slice(0, -1) + lines[++i].trim();
-          }
-
-          var entityMatch = line.match(this.patterns.entity);
-          if (entityMatch) {
-            try {
-              this.parseEntity(entityMatch[1], entityMatch[2], entries);
-            } catch (e) {
-              if (!this.emit) {
-                throw e;
-              }
-            }
-          }
-        }
-        return entries;
-      },
-
-      parseEntity: function parseEntity(id, value, entries) {
-        var name = void 0,
-            key = void 0;
-
-        var pos = id.indexOf('[');
-        if (pos !== -1) {
-          name = id.substr(0, pos);
-          key = id.substring(pos + 1, id.length - 1);
-        } else {
-          name = id;
-          key = null;
-        }
-
-        var nameElements = name.split('.');
-
-        if (nameElements.length > 2) {
-          throw this.error('Error in ID: "' + name + '".' + ' Nested attributes are not supported.');
-        }
-
-        var attr = void 0;
-        if (nameElements.length > 1) {
-          name = nameElements[0];
-          attr = nameElements[1];
-
-          if (attr[0] === '$') {
-            throw this.error('Attribute can\'t start with "$"');
-          }
-        } else {
-          attr = null;
-        }
-
-        this.setEntityValue(name, attr, key, this.unescapeString(value), entries);
-      },
-
-      setEntityValue: function setEntityValue(id, attr, key, rawValue, entries) {
-        var value = rawValue.indexOf('{{') > -1 ? this.parseString(rawValue) : rawValue;
-
-        var isSimpleValue = typeof value === 'string';
-        var root = entries;
-
-        var isSimpleNode = typeof entries[id] === 'string';
-
-        if (!entries[id] && (attr || key || !isSimpleValue)) {
-          entries[id] = Object.create(null);
-          isSimpleNode = false;
-        }
-
-        if (attr) {
-          if (isSimpleNode) {
-            var val = entries[id];
-            entries[id] = Object.create(null);
-            entries[id].value = val;
-          }
-          if (!entries[id].attrs) {
-            entries[id].attrs = Object.create(null);
-          }
-          if (!entries[id].attrs && !isSimpleValue) {
-            entries[id].attrs[attr] = Object.create(null);
-          }
-          root = entries[id].attrs;
-          id = attr;
-        }
-
-        if (key) {
-          isSimpleNode = false;
-          if (typeof root[id] === 'string') {
-            var _val = root[id];
-            root[id] = Object.create(null);
-            root[id].index = this.parseIndex(_val);
-            root[id].value = Object.create(null);
-          }
-          root = root[id].value;
-          id = key;
-          isSimpleValue = true;
-        }
-
-        if (isSimpleValue) {
-          if (id in root) {
-            throw this.error('Duplicated id: ' + id);
-          }
-          root[id] = value;
-        } else {
-          if (!root[id]) {
-            root[id] = Object.create(null);
-          }
-          root[id].value = value;
-        }
-      },
-
-      parseString: function parseString(str) {
-        var chunks = str.split(this.patterns.placeables);
-        var complexStr = [];
-
-        var len = chunks.length;
-        var placeablesCount = (len - 1) / 2;
-
-        if (placeablesCount >= MAX_PLACEABLES) {
-          throw this.error('Too many placeables (' + placeablesCount + ', max allowed is ' + MAX_PLACEABLES + ')');
-        }
-
-        for (var i = 0; i < chunks.length; i++) {
-          if (chunks[i].length === 0) {
-            continue;
-          }
-          if (i % 2 === 1) {
-            complexStr.push({ type: 'idOrVar', name: chunks[i] });
-          } else {
-            complexStr.push(chunks[i]);
-          }
-        }
-        return complexStr;
-      },
-
-      unescapeString: function unescapeString(str) {
-        if (str.lastIndexOf('\\') !== -1) {
-          str = str.replace(this.patterns.controlChars, '$1');
-        }
-        return str.replace(this.patterns.unicode, function (match, token) {
-          return String.fromCodePoint(parseInt(token, 16));
-        });
-      },
-
-      parseIndex: function parseIndex(str) {
-        var match = str.match(this.patterns.index);
-        if (!match) {
-          throw new L10nError('Malformed index');
-        }
-        if (match[2]) {
-          return [{
-            type: 'call',
-            expr: {
-              type: 'prop',
-              expr: {
-                type: 'glob',
-                name: 'cldr'
-              },
-              prop: 'plural',
-              cmpt: false
-            }, args: [{
-              type: 'idOrVar',
-              name: match[2]
-            }]
-          }];
-        } else {
-          return [{ type: 'idOrVar', name: match[1] }];
-        }
-      },
-
-      error: function error(msg) {
-        var type = arguments.length <= 1 || arguments[1] === undefined ? 'parsererror' : arguments[1];
-
-        var err = new L10nError(msg);
-        if (this.emit) {
-          this.emit(type, err);
-        }
-        return err;
-      }
+    var Node = function Node() {
+      babelHelpers.classCallCheck(this, Node);
     };
 
-    var MAX_PLACEABLES$1 = 100;
+    var Resource = function (_Node) {
+      babelHelpers.inherits(Resource, _Node);
 
-    var L20nParser = {
-      parse: function parse(emit, string) {
+      function Resource() {
+        babelHelpers.classCallCheck(this, Resource);
+
+        var _this16 = babelHelpers.possibleConstructorReturn(this, Object.getPrototypeOf(Resource).call(this));
+
+        _this16.type = 'Resource';
+        _this16.body = [];
+        return _this16;
+      }
+
+      return Resource;
+    }(Node);
+
+    var Entry = function (_Node2) {
+      babelHelpers.inherits(Entry, _Node2);
+
+      function Entry() {
+        babelHelpers.classCallCheck(this, Entry);
+
+        var _this17 = babelHelpers.possibleConstructorReturn(this, Object.getPrototypeOf(Entry).call(this));
+
+        _this17.type = 'Entry';
+        return _this17;
+      }
+
+      return Entry;
+    }(Node);
+
+    var Identifier = function (_Node3) {
+      babelHelpers.inherits(Identifier, _Node3);
+
+      function Identifier(name) {
+        var namespace = arguments.length <= 1 || arguments[1] === undefined ? null : arguments[1];
+        babelHelpers.classCallCheck(this, Identifier);
+
+        var _this18 = babelHelpers.possibleConstructorReturn(this, Object.getPrototypeOf(Identifier).call(this));
+
+        _this18.type = 'Identifier';
+        _this18.name = name;
+        _this18.namespace = namespace;
+        return _this18;
+      }
+
+      return Identifier;
+    }(Node);
+
+    var Section = function (_Node4) {
+      babelHelpers.inherits(Section, _Node4);
+
+      function Section(name) {
+        var comment = arguments.length <= 1 || arguments[1] === undefined ? null : arguments[1];
+        babelHelpers.classCallCheck(this, Section);
+
+        var _this19 = babelHelpers.possibleConstructorReturn(this, Object.getPrototypeOf(Section).call(this));
+
+        _this19.type = 'Section';
+        _this19.name = name;
+        _this19.comment = comment;
+        return _this19;
+      }
+
+      return Section;
+    }(Node);
+
+    var Pattern$1 = function (_Node5) {
+      babelHelpers.inherits(Pattern$1, _Node5);
+
+      function Pattern$1(source, elements) {
+        babelHelpers.classCallCheck(this, Pattern$1);
+
+        var _this20 = babelHelpers.possibleConstructorReturn(this, Object.getPrototypeOf(Pattern$1).call(this));
+
+        _this20.type = 'Pattern';
+        _this20.source = source;
+        _this20.elements = elements;
+        return _this20;
+      }
+
+      return Pattern$1;
+    }(Node);
+
+    var Member = function (_Node6) {
+      babelHelpers.inherits(Member, _Node6);
+
+      function Member(key, value) {
+        var def = arguments.length <= 2 || arguments[2] === undefined ? false : arguments[2];
+        babelHelpers.classCallCheck(this, Member);
+
+        var _this21 = babelHelpers.possibleConstructorReturn(this, Object.getPrototypeOf(Member).call(this));
+
+        _this21.type = 'Member';
+        _this21.key = key;
+        _this21.value = value;
+        _this21.default = def;
+        return _this21;
+      }
+
+      return Member;
+    }(Node);
+
+    var Entity$1 = function (_Entry) {
+      babelHelpers.inherits(Entity$1, _Entry);
+
+      function Entity$1(id) {
+        var value = arguments.length <= 1 || arguments[1] === undefined ? null : arguments[1];
+        var traits = arguments.length <= 2 || arguments[2] === undefined ? [] : arguments[2];
+        var comment = arguments.length <= 3 || arguments[3] === undefined ? null : arguments[3];
+        babelHelpers.classCallCheck(this, Entity$1);
+
+        var _this22 = babelHelpers.possibleConstructorReturn(this, Object.getPrototypeOf(Entity$1).call(this));
+
+        _this22.type = 'Entity';
+        _this22.id = id;
+        _this22.value = value;
+        _this22.traits = traits;
+        _this22.comment = comment;
+        return _this22;
+      }
+
+      return Entity$1;
+    }(Entry);
+
+    var Placeable = function (_Node7) {
+      babelHelpers.inherits(Placeable, _Node7);
+
+      function Placeable(expressions) {
+        babelHelpers.classCallCheck(this, Placeable);
+
+        var _this23 = babelHelpers.possibleConstructorReturn(this, Object.getPrototypeOf(Placeable).call(this));
+
+        _this23.type = 'Placeable';
+        _this23.expressions = expressions;
+        return _this23;
+      }
+
+      return Placeable;
+    }(Node);
+
+    var SelectExpression$1 = function (_Node8) {
+      babelHelpers.inherits(SelectExpression$1, _Node8);
+
+      function SelectExpression$1(expression) {
+        var variants = arguments.length <= 1 || arguments[1] === undefined ? null : arguments[1];
+        babelHelpers.classCallCheck(this, SelectExpression$1);
+
+        var _this24 = babelHelpers.possibleConstructorReturn(this, Object.getPrototypeOf(SelectExpression$1).call(this));
+
+        _this24.type = 'SelectExpression';
+        _this24.expression = expression;
+        _this24.variants = variants;
+        return _this24;
+      }
+
+      return SelectExpression$1;
+    }(Node);
+
+    var MemberExpression$1 = function (_Node9) {
+      babelHelpers.inherits(MemberExpression$1, _Node9);
+
+      function MemberExpression$1(obj, keyword) {
+        babelHelpers.classCallCheck(this, MemberExpression$1);
+
+        var _this25 = babelHelpers.possibleConstructorReturn(this, Object.getPrototypeOf(MemberExpression$1).call(this));
+
+        _this25.type = 'MemberExpression';
+        _this25.object = obj;
+        _this25.keyword = keyword;
+        return _this25;
+      }
+
+      return MemberExpression$1;
+    }(Node);
+
+    var CallExpression$1 = function (_Node10) {
+      babelHelpers.inherits(CallExpression$1, _Node10);
+
+      function CallExpression$1(callee, args) {
+        babelHelpers.classCallCheck(this, CallExpression$1);
+
+        var _this26 = babelHelpers.possibleConstructorReturn(this, Object.getPrototypeOf(CallExpression$1).call(this));
+
+        _this26.type = 'CallExpression';
+        _this26.callee = callee;
+        _this26.args = args;
+        return _this26;
+      }
+
+      return CallExpression$1;
+    }(Node);
+
+    var ExternalArgument$1 = function (_Node11) {
+      babelHelpers.inherits(ExternalArgument$1, _Node11);
+
+      function ExternalArgument$1(name) {
+        babelHelpers.classCallCheck(this, ExternalArgument$1);
+
+        var _this27 = babelHelpers.possibleConstructorReturn(this, Object.getPrototypeOf(ExternalArgument$1).call(this));
+
+        _this27.type = 'ExternalArgument';
+        _this27.name = name;
+        return _this27;
+      }
+
+      return ExternalArgument$1;
+    }(Node);
+
+    var KeyValueArg$1 = function (_Node12) {
+      babelHelpers.inherits(KeyValueArg$1, _Node12);
+
+      function KeyValueArg$1(name, value) {
+        babelHelpers.classCallCheck(this, KeyValueArg$1);
+
+        var _this28 = babelHelpers.possibleConstructorReturn(this, Object.getPrototypeOf(KeyValueArg$1).call(this));
+
+        _this28.type = 'KeyValueArg';
+        _this28.name = name;
+        _this28.value = value;
+        return _this28;
+      }
+
+      return KeyValueArg$1;
+    }(Node);
+
+    var EntityReference$1 = function (_Identifier) {
+      babelHelpers.inherits(EntityReference$1, _Identifier);
+
+      function EntityReference$1(name, namespace) {
+        babelHelpers.classCallCheck(this, EntityReference$1);
+
+        var _this29 = babelHelpers.possibleConstructorReturn(this, Object.getPrototypeOf(EntityReference$1).call(this));
+
+        _this29.type = 'EntityReference';
+        _this29.name = name;
+        _this29.namespace = namespace;
+        return _this29;
+      }
+
+      return EntityReference$1;
+    }(Identifier);
+
+    var BuiltinReference$1 = function (_Identifier2) {
+      babelHelpers.inherits(BuiltinReference$1, _Identifier2);
+
+      function BuiltinReference$1(name, namespace) {
+        babelHelpers.classCallCheck(this, BuiltinReference$1);
+
+        var _this30 = babelHelpers.possibleConstructorReturn(this, Object.getPrototypeOf(BuiltinReference$1).call(this));
+
+        _this30.type = 'BuiltinReference';
+        _this30.name = name;
+        _this30.namespace = namespace;
+        return _this30;
+      }
+
+      return BuiltinReference$1;
+    }(Identifier);
+
+    var Keyword = function (_Identifier3) {
+      babelHelpers.inherits(Keyword, _Identifier3);
+
+      function Keyword(name) {
+        var namespace = arguments.length <= 1 || arguments[1] === undefined ? null : arguments[1];
+        babelHelpers.classCallCheck(this, Keyword);
+
+        var _this31 = babelHelpers.possibleConstructorReturn(this, Object.getPrototypeOf(Keyword).call(this));
+
+        _this31.type = 'Keyword';
+        _this31.name = name;
+        _this31.namespace = namespace;
+        return _this31;
+      }
+
+      return Keyword;
+    }(Identifier);
+
+    var Number = function (_Node13) {
+      babelHelpers.inherits(Number, _Node13);
+
+      function Number(value) {
+        babelHelpers.classCallCheck(this, Number);
+
+        var _this32 = babelHelpers.possibleConstructorReturn(this, Object.getPrototypeOf(Number).call(this));
+
+        _this32.type = 'Number';
+        _this32.value = value;
+        return _this32;
+      }
+
+      return Number;
+    }(Node);
+
+    var TextElement = function (_Node14) {
+      babelHelpers.inherits(TextElement, _Node14);
+
+      function TextElement(value) {
+        babelHelpers.classCallCheck(this, TextElement);
+
+        var _this33 = babelHelpers.possibleConstructorReturn(this, Object.getPrototypeOf(TextElement).call(this));
+
+        _this33.type = 'TextElement';
+        _this33.value = value;
+        return _this33;
+      }
+
+      return TextElement;
+    }(Node);
+
+    var Comment = function (_Node15) {
+      babelHelpers.inherits(Comment, _Node15);
+
+      function Comment(content) {
+        babelHelpers.classCallCheck(this, Comment);
+
+        var _this34 = babelHelpers.possibleConstructorReturn(this, Object.getPrototypeOf(Comment).call(this));
+
+        _this34.type = 'Comment';
+        _this34.content = content;
+        return _this34;
+      }
+
+      return Comment;
+    }(Node);
+
+    var JunkEntry = function (_Entry2) {
+      babelHelpers.inherits(JunkEntry, _Entry2);
+
+      function JunkEntry(content) {
+        babelHelpers.classCallCheck(this, JunkEntry);
+
+        var _this35 = babelHelpers.possibleConstructorReturn(this, Object.getPrototypeOf(JunkEntry).call(this));
+
+        _this35.type = 'JunkEntry';
+        _this35.content = content;
+        return _this35;
+      }
+
+      return JunkEntry;
+    }(Entry);
+
+    var AST = {
+      Node: Node,
+      Pattern: Pattern$1,
+      Member: Member,
+      Identifier: Identifier,
+      Entity: Entity$1,
+      Section: Section,
+      Resource: Resource,
+      Placeable: Placeable,
+      SelectExpression: SelectExpression$1,
+      MemberExpression: MemberExpression$1,
+      CallExpression: CallExpression$1,
+      ExternalArgument: ExternalArgument$1,
+      KeyValueArg: KeyValueArg$1,
+      Number: Number,
+      EntityReference: EntityReference$1,
+      BuiltinReference: BuiltinReference$1,
+      Keyword: Keyword,
+      TextElement: TextElement,
+      Comment: Comment,
+      JunkEntry: JunkEntry
+    };
+
+    var ParseContext = function () {
+      function ParseContext(string) {
+        babelHelpers.classCallCheck(this, ParseContext);
+
         this._source = string;
         this._index = 0;
         this._length = string.length;
-        this.entries = Object.create(null);
-        this.emit = emit;
 
-        return this.getResource();
-      },
+        this._lastGoodEntryEnd = 0;
+        this._section = null;
+      }
 
-      getResource: function getResource() {
-        this.getWS();
-        while (this._index < this._length) {
-          try {
-            this.getEntry();
-          } catch (e) {
-            if (e instanceof L10nError) {
-              this.getJunkEntry();
-              if (!this.emit) {
+      babelHelpers.createClass(ParseContext, [{
+        key: 'getResource',
+        value: function getResource() {
+          var resource = new AST.Resource();
+          resource._errors = [];
+
+          this.getWS();
+          while (this._index < this._length) {
+            try {
+              resource.body.push(this.getEntry());
+              this._lastGoodEntryEnd = this._index;
+            } catch (e) {
+              if (e instanceof L10nError) {
+                resource._errors.push(e);
+                resource.body.push(this.getJunkEntry());
+              } else {
                 throw e;
               }
-            } else {
-              throw e;
             }
-          }
-
-          if (this._index < this._length) {
             this.getWS();
           }
+
+          return resource;
         }
+      }, {
+        key: 'getEntry',
+        value: function getEntry() {
+          if (this._index !== 0 && this._source[this._index - 1] !== '\n') {
+            throw this.error('Expected new line and a new entry');
+          }
 
-        return this.entries;
-      },
+          var comment = void 0;
 
-      getEntry: function getEntry() {
-        if (this._source[this._index] === '<') {
-          ++this._index;
-          var id = this.getIdentifier();
+          if (this._source[this._index] === '#') {
+            comment = this.getComment();
+          }
+
+          this.getLineWS();
+
           if (this._source[this._index] === '[') {
-            ++this._index;
-            return this.getEntity(id, this.getItemList(this.getExpression, ']'));
+            return this.getSection(comment);
           }
-          return this.getEntity(id);
-        }
 
-        if (this._source.startsWith('/*', this._index)) {
-          return this.getComment();
-        }
-
-        throw this.error('Invalid entry');
-      },
-
-      getEntity: function getEntity(id, index) {
-        if (!this.getRequiredWS()) {
-          throw this.error('Expected white space');
-        }
-
-        var ch = this._source[this._index];
-        var hasIndex = index !== undefined;
-        var value = this.getValue(ch, hasIndex, hasIndex);
-        var attrs = void 0;
-
-        if (value === undefined) {
-          if (ch === '>') {
-            throw this.error('Expected ">"');
+          if (this._index < this._length && this._source[this._index] !== '\n') {
+            return this.getEntity(comment);
           }
-          attrs = this.getAttributes();
-        } else {
-          var ws1 = this.getRequiredWS();
-          if (this._source[this._index] !== '>') {
-            if (!ws1) {
-              throw this.error('Expected ">"');
+          return comment;
+        }
+      }, {
+        key: 'getSection',
+        value: function getSection() {
+          var comment = arguments.length <= 0 || arguments[0] === undefined ? null : arguments[0];
+
+          this._index += 1;
+          if (this._source[this._index] !== '[') {
+            throw this.error('Expected "[[" to open a section');
+          }
+
+          this._index += 1;
+
+          this.getLineWS();
+
+          var id = this.getIdentifier();
+
+          this.getLineWS();
+
+          if (this._source[this._index] !== ']' || this._source[this._index + 1] !== ']') {
+            throw this.error('Expected "]]" to close a section');
+          }
+
+          this._index += 2;
+
+          this._section = id;
+
+          return new AST.Section(id, comment);
+        }
+      }, {
+        key: 'getEntity',
+        value: function getEntity() {
+          var comment = arguments.length <= 0 || arguments[0] === undefined ? null : arguments[0];
+
+          var id = this.getIdentifier('/');
+
+          var members = [];
+          var value = null;
+
+          this.getLineWS();
+
+          var ch = this._source[this._index];
+
+          if (ch !== '=') {
+            throw this.error('Expected "=" after Entity ID');
+          }
+          ch = this._source[++this._index];
+
+          this.getLineWS();
+
+          value = this.getPattern();
+
+          ch = this._source[this._index];
+
+          if (ch === '\n') {
+            this._index++;
+            this.getLineWS();
+            ch = this._source[this._index];
+          }
+
+          if (ch === '[' && this._source[this._index + 1] !== '[' || ch === '*') {
+            members = this.getMembers();
+          } else if (value === null) {
+            throw this.error('Expected a value (like: " = value") or a trait (like: "[key] value")');
+          }
+
+          return new AST.Entity(id, value, members, comment);
+        }
+      }, {
+        key: 'getWS',
+        value: function getWS() {
+          var cc = this._source.charCodeAt(this._index);
+
+          while (cc === 32 || cc === 10 || cc === 9 || cc === 13) {
+            cc = this._source.charCodeAt(++this._index);
+          }
+        }
+      }, {
+        key: 'getLineWS',
+        value: function getLineWS() {
+          var cc = this._source.charCodeAt(this._index);
+
+          while (cc === 32 || cc === 9) {
+            cc = this._source.charCodeAt(++this._index);
+          }
+        }
+      }, {
+        key: 'getIdentifier',
+        value: function getIdentifier() {
+          var nsSep = arguments.length <= 0 || arguments[0] === undefined ? null : arguments[0];
+
+          var namespace = null;
+          var id = '';
+
+          if (nsSep) {
+            namespace = this.getIdentifier().name;
+            if (this._source[this._index] === nsSep) {
+              this._index++;
+            } else if (namespace) {
+              id = namespace;
+              namespace = null;
             }
-            attrs = this.getAttributes();
-          }
-        }
-
-        ++this._index;
-
-        if (id in this.entries) {
-          throw this.error('Duplicate entry ID "' + id, 'duplicateerror');
-        }
-        if (!attrs && !index && typeof value === 'string') {
-          this.entries[id] = value;
-        } else {
-          this.entries[id] = {
-            value: value,
-            attrs: attrs,
-            index: index
-          };
-        }
-      },
-
-      getValue: function getValue() {
-        var ch = arguments.length <= 0 || arguments[0] === undefined ? this._source[this._index] : arguments[0];
-        var index = arguments.length <= 1 || arguments[1] === undefined ? false : arguments[1];
-        var required = arguments.length <= 2 || arguments[2] === undefined ? true : arguments[2];
-
-        switch (ch) {
-          case '\'':
-          case '"':
-            return this.getString(ch, 1);
-          case '{':
-            return this.getHash(index);
-        }
-
-        if (required) {
-          throw this.error('Unknown value type');
-        }
-
-        return undefined;
-      },
-
-      getWS: function getWS() {
-        var cc = this._source.charCodeAt(this._index);
-
-        while (cc === 32 || cc === 10 || cc === 9 || cc === 13) {
-          cc = this._source.charCodeAt(++this._index);
-        }
-      },
-
-      getRequiredWS: function getRequiredWS() {
-        var pos = this._index;
-        var cc = this._source.charCodeAt(pos);
-
-        while (cc === 32 || cc === 10 || cc === 9 || cc === 13) {
-          cc = this._source.charCodeAt(++this._index);
-        }
-        return this._index !== pos;
-      },
-
-      getIdentifier: function getIdentifier() {
-        var start = this._index;
-        var cc = this._source.charCodeAt(this._index);
-
-        if (cc >= 97 && cc <= 122 || cc >= 65 && cc <= 90 || cc === 95) {
-          cc = this._source.charCodeAt(++this._index);
-        } else {
-          throw this.error('Identifier has to start with [a-zA-Z_]');
-        }
-
-        while (cc >= 97 && cc <= 122 || cc >= 65 && cc <= 90 || cc >= 48 && cc <= 57 || cc === 95) {
-          cc = this._source.charCodeAt(++this._index);
-        }
-
-        return this._source.slice(start, this._index);
-      },
-
-      getUnicodeChar: function getUnicodeChar() {
-        for (var i = 0; i < 4; i++) {
-          var cc = this._source.charCodeAt(++this._index);
-          if (cc > 96 && cc < 103 || cc > 64 && cc < 71 || cc > 47 && cc < 58) {
-            continue;
-          }
-          throw this.error('Illegal unicode escape sequence');
-        }
-        this._index++;
-        return String.fromCharCode(parseInt(this._source.slice(this._index - 4, this._index), 16));
-      },
-
-      stringRe: /"|'|{{|\\/g,
-      getString: function getString(opchar, opcharLen) {
-        var body = [];
-        var placeables = 0;
-
-        this._index += opcharLen;
-        var start = this._index;
-
-        var bufStart = start;
-        var buf = '';
-
-        while (true) {
-          this.stringRe.lastIndex = this._index;
-          var match = this.stringRe.exec(this._source);
-
-          if (!match) {
-            throw this.error('Unclosed string literal');
           }
 
-          if (match[0] === '"' || match[0] === '\'') {
-            if (match[0] !== opchar) {
-              this._index += opcharLen;
+          var start = this._index;
+          var cc = this._source.charCodeAt(this._index);
+
+          if (cc >= 97 && cc <= 122 || cc >= 65 && cc <= 90 || cc === 95) {
+            cc = this._source.charCodeAt(++this._index);
+          } else if (id.length === 0) {
+            throw this.error('Expected an identifier (starting with [a-zA-Z_])');
+          }
+
+          while (cc >= 97 && cc <= 122 || cc >= 65 && cc <= 90 || cc >= 48 && cc <= 57 || cc === 95 || cc === 45) {
+            cc = this._source.charCodeAt(++this._index);
+          }
+
+          id += this._source.slice(start, this._index);
+
+          return new AST.Identifier(id, namespace);
+        }
+      }, {
+        key: 'getIdentifierWithSpace',
+        value: function getIdentifierWithSpace() {
+          var nsSep = arguments.length <= 0 || arguments[0] === undefined ? null : arguments[0];
+
+          var namespace = null;
+          var id = '';
+
+          if (nsSep) {
+            namespace = this.getIdentifier().name;
+            if (this._source[this._index] === nsSep) {
+              this._index++;
+            } else if (namespace) {
+              id = namespace;
+              namespace = null;
+            }
+          }
+
+          var start = this._index;
+          var cc = this._source.charCodeAt(this._index);
+
+          if (cc >= 97 && cc <= 122 || cc >= 65 && cc <= 90 || cc === 95 || cc === 32) {
+            cc = this._source.charCodeAt(++this._index);
+          } else if (id.length === 0) {
+            throw this.error('Expected an identifier (starting with [a-zA-Z_])');
+          }
+
+          while (cc >= 97 && cc <= 122 || cc >= 65 && cc <= 90 || cc >= 48 && cc <= 57 || cc === 95 || cc === 45 || cc === 32) {
+            cc = this._source.charCodeAt(++this._index);
+          }
+
+          id += this._source.slice(start, this._index);
+
+          return new AST.Identifier(id, namespace);
+        }
+      }, {
+        key: 'getPattern',
+        value: function getPattern() {
+          var buffer = '';
+          var source = '';
+          var content = [];
+          var quoteDelimited = null;
+          var firstLine = true;
+
+          var ch = this._source[this._index];
+
+          if (ch === '\\' && (this._source[this._index + 1] === '"' || this._source[this._index + 1] === '{' || this._source[this._index + 1] === '\\')) {
+            buffer += this._source[this._index + 1];
+            this._index += 2;
+            ch = this._source[this._index];
+          } else if (ch === '"') {
+            quoteDelimited = true;
+            this._index++;
+            ch = this._source[this._index];
+          }
+
+          while (this._index < this._length) {
+            if (ch === '\n') {
+              if (quoteDelimited) {
+                throw this.error('Unclosed string');
+              }
+              this._index++;
+              this.getLineWS();
+              if (this._source[this._index] !== '|') {
+                break;
+              }
+              if (firstLine && buffer.length) {
+                throw this.error('Multiline string should have the ID line empty');
+              }
+              firstLine = false;
+              this._index++;
+              if (this._source[this._index] === ' ') {
+                this._index++;
+              }
+              if (buffer.length) {
+                buffer += '\n';
+              }
+              ch = this._source[this._index];
+              continue;
+            } else if (ch === '\\') {
+              var ch2 = this._source[this._index + 1];
+              if (quoteDelimited && ch2 === '"' || ch2 === '{') {
+                ch = ch2;
+                this._index++;
+              }
+            } else if (quoteDelimited && ch === '"') {
+              this._index++;
+              quoteDelimited = false;
+              break;
+            } else if (ch === '{') {
+              if (buffer.length) {
+                content.push(new AST.TextElement(buffer));
+              }
+              source += buffer;
+              buffer = '';
+              var start = this._index;
+              content.push(this.getPlaceable());
+              source += this._source.substring(start, this._index);
+              ch = this._source[this._index];
               continue;
             }
-            this._index = match.index + opcharLen;
-            break;
+
+            if (ch) {
+              buffer += ch;
+            }
+            this._index++;
+            ch = this._source[this._index];
           }
 
-          if (match[0] === '{{') {
-            if (placeables > MAX_PLACEABLES$1 - 1) {
-              throw this.error('Too many placeables, maximum allowed is ' + MAX_PLACEABLES$1);
-            }
-            placeables++;
-            if (match.index > bufStart || buf.length > 0) {
-              body.push(buf + this._source.slice(bufStart, match.index));
-              buf = '';
-            }
-            this._index = match.index + 2;
-            this.getWS();
-            body.push(this.getExpression());
-            this.getWS();
-            this._index += 2;
-            bufStart = this._index;
-            continue;
+          if (quoteDelimited) {
+            throw this.error('Unclosed string');
           }
 
-          if (match[0] === '\\') {
-            this._index = match.index + 1;
-            var ch2 = this._source[this._index];
-            if (ch2 === 'u') {
-              buf += this._source.slice(bufStart, match.index) + this.getUnicodeChar();
-            } else if (ch2 === opchar || ch2 === '\\') {
-              buf += this._source.slice(bufStart, match.index) + ch2;
-              this._index++;
-            } else if (this._source.startsWith('{{', this._index)) {
-              buf += this._source.slice(bufStart, match.index) + '{{';
-              this._index += 2;
+          if (buffer.length) {
+            source += buffer;
+            content.push(new AST.TextElement(buffer));
+          }
+
+          if (content.length === 0) {
+            if (quoteDelimited !== null) {
+              content.push(new AST.TextElement(source));
             } else {
-              throw this.error('Illegal escape sequence');
+              return null;
             }
-            bufStart = this._index;
           }
+
+          return new AST.Pattern(source, content);
         }
+      }, {
+        key: 'getPlaceable',
+        value: function getPlaceable() {
+          this._index++;
 
-        if (body.length === 0) {
-          return buf + this._source.slice(bufStart, this._index - opcharLen);
-        }
+          var expressions = [];
 
-        if (this._index - opcharLen > bufStart || buf.length > 0) {
-          body.push(buf + this._source.slice(bufStart, this._index - opcharLen));
-        }
+          this.getLineWS();
 
-        return body;
-      },
-
-      getAttributes: function getAttributes() {
-        var attrs = Object.create(null);
-
-        while (true) {
-          this.getAttribute(attrs);
-          var ws1 = this.getRequiredWS();
-          var ch = this._source.charAt(this._index);
-          if (ch === '>') {
-            break;
-          } else if (!ws1) {
-            throw this.error('Expected ">"');
-          }
-        }
-        return attrs;
-      },
-
-      getAttribute: function getAttribute(attrs) {
-        var key = this.getIdentifier();
-        var index = void 0;
-
-        if (this._source[this._index] === '[') {
-          ++this._index;
-          this.getWS();
-          index = this.getItemList(this.getExpression, ']');
-        }
-        this.getWS();
-        if (this._source[this._index] !== ':') {
-          throw this.error('Expected ":"');
-        }
-        ++this._index;
-        this.getWS();
-        var hasIndex = index !== undefined;
-        var value = this.getValue(undefined, hasIndex);
-
-        if (key in attrs) {
-          throw this.error('Duplicate attribute "' + key, 'duplicateerror');
-        }
-
-        if (!index && typeof value === 'string') {
-          attrs[key] = value;
-        } else {
-          attrs[key] = {
-            value: value,
-            index: index
-          };
-        }
-      },
-
-      getHash: function getHash(index) {
-        var items = Object.create(null);
-
-        ++this._index;
-        this.getWS();
-
-        var defKey = void 0;
-
-        while (true) {
-          var _getHashItem = this.getHashItem();
-
-          var _getHashItem2 = babelHelpers.slicedToArray(_getHashItem, 3);
-
-          var key = _getHashItem2[0];
-          var value = _getHashItem2[1];
-          var def = _getHashItem2[2];
-
-          items[key] = value;
-
-          if (def) {
-            if (defKey) {
-              throw this.error('Default item redefinition forbidden');
+          while (this._index < this._length) {
+            var start = this._index;
+            try {
+              expressions.push(this.getPlaceableExpression());
+            } catch (e) {
+              throw this.error(e.description, start);
             }
-            defKey = key;
+            this.getWS();
+            if (this._source[this._index] === '}') {
+              this._index++;
+              break;
+            } else if (this._source[this._index] === ',') {
+              this._index++;
+              this.getWS();
+            } else {
+              throw this.error('Expected "}" or ","');
+            }
           }
+
+          return new AST.Placeable(expressions);
+        }
+      }, {
+        key: 'getPlaceableExpression',
+        value: function getPlaceableExpression() {
+          var selector = this.getCallExpression();
+          var members = null;
+
           this.getWS();
 
-          var comma = this._source[this._index] === ',';
-          if (comma) {
-            ++this._index;
+          if (this._source[this._index] !== '}' && this._source[this._index] !== ',') {
+            if (this._source[this._index] !== '-' || this._source[this._index + 1] !== '>') {
+              throw this.error('Expected "}", "," or "->"');
+            }
+            this._index += 2;
+
+            this.getLineWS();
+
+            if (this._source[this._index] !== '\n') {
+              throw this.error('Members should be listed in a new line');
+            }
+
+            this.getWS();
+
+            members = this.getMembers();
+
+            if (members.length === 0) {
+              throw this.error('Expected members for the select expression');
+            }
+          }
+
+          if (members === null) {
+            return selector;
+          }
+          return new AST.SelectExpression(selector, members);
+        }
+      }, {
+        key: 'getCallExpression',
+        value: function getCallExpression() {
+          var exp = this.getMemberExpression();
+
+          if (this._source[this._index] !== '(') {
+            return exp;
+          }
+
+          this._index++;
+
+          var args = this.getCallArgs();
+
+          this._index++;
+
+          if (exp instanceof AST.EntityReference) {
+            exp = new AST.BuiltinReference(exp.name, exp.namespace);
+          }
+
+          return new AST.CallExpression(exp, args);
+        }
+      }, {
+        key: 'getCallArgs',
+        value: function getCallArgs() {
+          var args = [];
+
+          if (this._source[this._index] === ')') {
+            return args;
+          }
+
+          while (this._index < this._length) {
+            this.getLineWS();
+
+            var exp = this.getCallExpression();
+
+            if (!(exp instanceof AST.EntityReference) || exp.namespace !== null) {
+              args.push(exp);
+            } else {
+              this.getLineWS();
+
+              if (this._source[this._index] === ':') {
+                this._index++;
+                this.getLineWS();
+
+                var val = this.getCallExpression();
+
+                if (val instanceof AST.EntityReference || val instanceof AST.MemberExpression) {
+                  this._index = this._source.lastIndexOf('=', this._index) + 1;
+                  throw this.error('Expected string in quotes');
+                }
+
+                args.push(new AST.KeyValueArg(exp.name, val));
+              } else {
+                args.push(exp);
+              }
+            }
+
+            this.getLineWS();
+
+            if (this._source[this._index] === ')') {
+              break;
+            } else if (this._source[this._index] === ',') {
+              this._index++;
+            } else {
+              throw this.error('Expected "," or ")"');
+            }
+          }
+
+          return args;
+        }
+      }, {
+        key: 'getNumber',
+        value: function getNumber() {
+          var num = '';
+          var cc = this._source.charCodeAt(this._index);
+
+          if (cc === 45) {
+            num += '-';
+            cc = this._source.charCodeAt(++this._index);
+          }
+
+          if (cc < 48 || cc > 57) {
+            throw this.error('Unknown literal "' + num + '"');
+          }
+
+          while (cc >= 48 && cc <= 57) {
+            num += this._source[this._index++];
+            cc = this._source.charCodeAt(this._index);
+          }
+
+          if (cc === 46) {
+            num += this._source[this._index++];
+            cc = this._source.charCodeAt(this._index);
+
+            if (cc < 48 || cc > 57) {
+              throw this.error('Unknown literal "' + num + '"');
+            }
+
+            while (cc >= 48 && cc <= 57) {
+              num += this._source[this._index++];
+              cc = this._source.charCodeAt(this._index);
+            }
+          }
+
+          return new AST.Number(num);
+        }
+      }, {
+        key: 'getMemberExpression',
+        value: function getMemberExpression() {
+          var exp = this.getLiteral();
+
+          if (this._source[this._index] !== '[') {
+            return exp;
+          }
+          var keyword = this.getKeyword();
+          return new AST.MemberExpression(exp, keyword);
+        }
+      }, {
+        key: 'getMembers',
+        value: function getMembers() {
+          var members = [];
+
+          while (this._index < this._length) {
+            if ((this._source[this._index] !== '[' || this._source[this._index + 1] === '[') && this._source[this._index] !== '*') {
+              break;
+            }
+            var def = false;
+            if (this._source[this._index] === '*') {
+              this._index++;
+              def = true;
+            }
+
+            if (this._source[this._index] !== '[') {
+              throw this.error('Expected "["');
+            }
+
+            var key = this.getKeyword();
+
+            this.getLineWS();
+
+            var value = this.getPattern();
+
+            var member = new AST.Member(key, value, def);
+
+            members.push(member);
+
             this.getWS();
           }
-          if (this._source[this._index] === '}') {
-            ++this._index;
-            break;
-          }
-          if (!comma) {
-            throw this.error('Expected "}"');
-          }
+
+          return members;
         }
+      }, {
+        key: 'getKeyword',
+        value: function getKeyword() {
+          this._index++;
 
-        if (defKey) {
-          items.__default = defKey;
-        } else if (!index) {
-          throw this.error('Unresolvable Hash Value');
-        }
+          var cc = this._source.charCodeAt(this._index);
+          var literal = void 0;
 
-        return items;
-      },
-
-      getHashItem: function getHashItem() {
-        var defItem = false;
-        if (this._source[this._index] === '*') {
-          ++this._index;
-          defItem = true;
-        }
-
-        var key = this.getIdentifier();
-        this.getWS();
-        if (this._source[this._index] !== ':') {
-          throw this.error('Expected ":"');
-        }
-        ++this._index;
-        this.getWS();
-
-        return [key, this.getValue(), defItem];
-      },
-
-      getComment: function getComment() {
-        this._index += 2;
-        var start = this._index;
-        var end = this._source.indexOf('*/', start);
-
-        if (end === -1) {
-          throw this.error('Comment without a closing tag');
-        }
-
-        this._index = end + 2;
-      },
-
-      getExpression: function getExpression() {
-        var exp = this.getPrimaryExpression();
-
-        while (true) {
-          var ch = this._source[this._index];
-          if (ch === '.' || ch === '[') {
-            ++this._index;
-            exp = this.getPropertyExpression(exp, ch === '[');
-          } else if (ch === '(') {
-            ++this._index;
-            exp = this.getCallExpression(exp);
+          if (cc >= 48 && cc <= 57 || cc === 45) {
+            literal = this.getNumber();
           } else {
-            break;
+            literal = this.getIdentifierWithSpace('/');
           }
-        }
 
-        return exp;
-      },
-
-      getPropertyExpression: function getPropertyExpression(idref, computed) {
-        var exp = void 0;
-
-        if (computed) {
-          this.getWS();
-          exp = this.getExpression();
-          this.getWS();
           if (this._source[this._index] !== ']') {
             throw this.error('Expected "]"');
           }
-          ++this._index;
-        } else {
-          exp = this.getIdentifier();
+
+          this._index++;
+          return literal;
         }
+      }, {
+        key: 'getLiteral',
+        value: function getLiteral() {
+          var cc = this._source.charCodeAt(this._index);
+          if (cc >= 48 && cc <= 57 || cc === 45) {
+            return this.getNumber();
+          } else if (cc === 34) {
+            return this.getPattern();
+          } else if (cc === 36) {
+            this._index++;
+            var _id = this.getIdentifier();
+            return new AST.ExternalArgument(_id.name);
+          }
 
+          var id = this.getIdentifier('/');
+          return new AST.EntityReference(id.name, id.namespace);
+        }
+      }, {
+        key: 'getComment',
+        value: function getComment() {
+          this._index++;
+          if (this._source[this._index] === ' ') {
+            this._index++;
+          }
+
+          var content = '';
+
+          var eol = this._source.indexOf('\n', this._index);
+
+          content += this._source.substring(this._index, eol);
+
+          while (eol !== -1 && this._source[eol + 1] === '#') {
+            this._index = eol + 2;
+
+            if (this._source[this._index] === ' ') {
+              this._index++;
+            }
+
+            eol = this._source.indexOf('\n', this._index);
+
+            if (eol === -1) {
+              break;
+            }
+
+            content += '\n' + this._source.substring(this._index, eol);
+          }
+
+          if (eol === -1) {
+            this._index = this._length;
+          } else {
+            this._index = eol + 1;
+          }
+
+          return new AST.Comment(content);
+        }
+      }, {
+        key: 'error',
+        value: function error(message) {
+          var start = arguments.length <= 1 || arguments[1] === undefined ? null : arguments[1];
+
+          var colors = require('colors/safe');
+
+          var pos = this._index;
+
+          if (start === null) {
+            start = pos;
+          }
+          start = this._findEntityStart(start);
+
+          var context = this._source.slice(start, pos + 10);
+
+          var msg = '\n\n  ' + message + '\nat pos ' + pos + ':\n------\n…' + context + '\n------';
+          var err = new L10nError(msg);
+
+          var row = this._source.slice(0, pos).split('\n').length;
+          var col = pos - this._source.lastIndexOf('\n', pos - 1);
+          err._pos = { start: pos, end: undefined, col: col, row: row };
+          err.offset = pos - start;
+          err.description = message;
+          err.context = context;
+          return err;
+        }
+      }, {
+        key: 'getJunkEntry',
+        value: function getJunkEntry() {
+          var pos = this._index;
+
+          var nextEntity = this._findNextEntryStart(pos);
+
+          if (nextEntity === -1) {
+            nextEntity = this._length;
+          }
+
+          this._index = nextEntity;
+
+          var entityStart = this._findEntityStart(pos);
+
+          if (entityStart < this._lastGoodEntryEnd) {
+            entityStart = this._lastGoodEntryEnd;
+          }
+
+          var junk = new AST.JunkEntry(this._source.slice(entityStart, nextEntity));
+          return junk;
+        }
+      }, {
+        key: '_findEntityStart',
+        value: function _findEntityStart(pos) {
+          var start = pos;
+
+          while (true) {
+            start = this._source.lastIndexOf('\n', start - 2);
+            if (start === -1 || start === 0) {
+              start = 0;
+              break;
+            }
+            var cc = this._source.charCodeAt(start + 1);
+
+            if (cc >= 97 && cc <= 122 || cc >= 65 && cc <= 90 || cc === 95) {
+              start++;
+              break;
+            }
+          }
+
+          return start;
+        }
+      }, {
+        key: '_findNextEntryStart',
+        value: function _findNextEntryStart(pos) {
+          var start = pos;
+
+          while (true) {
+            if (start === 0 || this._source[start - 1] === '\n') {
+              var cc = this._source.charCodeAt(start);
+
+              if (cc >= 97 && cc <= 122 || cc >= 65 && cc <= 90 || cc === 95 || cc === 35 || cc === 91) {
+                break;
+              }
+            }
+
+            start = this._source.indexOf('\n', start);
+
+            if (start === -1) {
+              break;
+            }
+            start++;
+          }
+
+          return start;
+        }
+      }]);
+      return ParseContext;
+    }();
+
+    var ASTParser = {
+      parseResource: function parseResource(string) {
+        var parseContext = new ParseContext(string);
+        return parseContext.getResource();
+      }
+    };
+
+    function toEntries(_ref22, entry) {
+      var _ref23 = babelHelpers.slicedToArray(_ref22, 2);
+
+      var entries = _ref23[0];
+      var curSection = _ref23[1];
+
+      if (entry.type === 'Section') {
+        return [entries, entry.name.name];
+      }
+
+      if (curSection && !entry.id.namespace) {
+        entry.id.namespace = curSection;
+      }
+
+      return [Object.assign(entries, babelHelpers.defineProperty({}, stringifyIdentifier(entry.id), transformEntity(entry))), curSection];
+    }
+
+    function transformEntity(entity) {
+      if (entity.traits.length === 0) {
+        return transformPattern(entity.value);
+      }
+
+      var ret = {
+        traits: entity.traits.map(transformMember)
+      };
+
+      if (entity.value !== null) {
+        ret.val = transformPattern(entity.value);
+      }
+
+      return ret;
+    }
+
+    function transformExpression(exp) {
+      if (exp instanceof AST.EntityReference) {
         return {
-          type: 'prop',
-          expr: idref,
-          prop: exp,
-          cmpt: computed
+          type: 'ref',
+          name: stringifyIdentifier(exp)
         };
-      },
+      }
+      if (exp instanceof AST.BuiltinReference) {
+        return {
+          type: 'blt',
+          name: stringifyIdentifier(exp)
+        };
+      }
+      if (exp instanceof AST.ExternalArgument) {
+        return {
+          type: 'ext',
+          name: exp.name
+        };
+      }
+      if (exp instanceof AST.Pattern) {
+        return transformPattern(exp);
+      }
+      if (exp instanceof AST.Identifier) {
+        return transformIdentifier(exp);
+      }
+      if (exp instanceof AST.Number) {
+        return {
+          type: 'num',
+          val: exp.value
+        };
+      }
+      if (exp instanceof AST.KeyValueArg) {
+        return {
+          type: 'kv',
+          name: exp.name,
+          val: transformExpression(exp.value)
+        };
+      }
 
-      getCallExpression: function getCallExpression(callee) {
-        this.getWS();
-
+      if (exp instanceof AST.SelectExpression) {
+        return {
+          type: 'sel',
+          exp: transformExpression(exp.expression),
+          vars: exp.variants.map(transformMember)
+        };
+      }
+      if (exp instanceof AST.MemberExpression) {
+        return {
+          type: 'mem',
+          obj: transformExpression(exp.object),
+          key: transformExpression(exp.keyword)
+        };
+      }
+      if (exp instanceof AST.CallExpression) {
         return {
           type: 'call',
-          expr: callee,
-          args: this.getItemList(this.getExpression, ')')
+          name: transformExpression(exp.callee),
+          args: exp.args.map(transformExpression)
         };
-      },
+      }
+      return exp;
+    }
 
-      getPrimaryExpression: function getPrimaryExpression() {
-        var ch = this._source[this._index];
+    function transformPattern(pattern) {
+      if (pattern === null) {
+        return null;
+      }
 
-        switch (ch) {
-          case '$':
-            ++this._index;
-            return {
-              type: 'var',
-              name: this.getIdentifier()
-            };
-          case '@':
-            ++this._index;
-            return {
-              type: 'glob',
-              name: this.getIdentifier()
-            };
-          default:
-            return {
-              type: 'id',
-              name: this.getIdentifier()
-            };
+      if (pattern.elements.length === 1 && pattern.elements[0] instanceof AST.TextElement) {
+        return pattern.source;
+      }
+
+      return pattern.elements.map(function (chunk) {
+        if (chunk instanceof AST.TextElement) {
+          return chunk.value;
         }
-      },
-
-      getItemList: function getItemList(callback, closeChar) {
-        var items = [];
-        var closed = false;
-
-        this.getWS();
-
-        if (this._source[this._index] === closeChar) {
-          ++this._index;
-          closed = true;
+        if (chunk instanceof AST.Placeable) {
+          return chunk.expressions.map(transformExpression);
         }
+        return chunk;
+      });
+    }
 
-        while (!closed) {
-          items.push(callback.call(this));
-          this.getWS();
-          var ch = this._source.charAt(this._index);
-          switch (ch) {
-            case ',':
-              ++this._index;
-              this.getWS();
-              break;
-            case closeChar:
-              ++this._index;
-              closed = true;
-              break;
-            default:
-              throw this.error('Expected "," or "' + closeChar + '"');
-          }
-        }
+    function transformMember(member) {
+      var type = member.key.type;
+      var ret = {
+        key: transformExpression(member.key),
+        val: transformPattern(member.value)
+      };
 
-        return items;
-      },
+      if (member.default) {
+        ret.def = true;
+      }
 
-      getJunkEntry: function getJunkEntry() {
-        var pos = this._index;
-        var nextEntity = this._source.indexOf('<', pos);
-        var nextComment = this._source.indexOf('/*', pos);
+      return ret;
+    }
 
-        if (nextEntity === -1) {
-          nextEntity = this._length;
-        }
-        if (nextComment === -1) {
-          nextComment = this._length;
-        }
+    function transformIdentifier(id) {
+      var ret = {
+        type: 'id',
+        name: id.name
+      };
 
-        var nextEntry = Math.min(nextEntity, nextComment);
+      if (id.namespace) {
+        ret.ns = id.namespace;
+      }
 
-        this._index = nextEntry;
-      },
+      return ret;
+    }
 
-      error: function error(message) {
-        var type = arguments.length <= 1 || arguments[1] === undefined ? 'parsererror' : arguments[1];
+    function stringifyIdentifier(id) {
+      if (id.namespace) {
+        return id.namespace + '/' + id.name;
+      }
+      return id.name;
+    }
 
-        var pos = this._index;
+    function createEntriesFromAST(_ref24) {
+      var body = _ref24.body;
+      var _errors = _ref24._errors;
 
-        var start = this._source.lastIndexOf('<', pos - 1);
-        var lastClose = this._source.lastIndexOf('>', pos - 1);
-        start = lastClose > start ? lastClose + 1 : start;
-        var context = this._source.slice(start, pos + 10);
+      var _body$filter$reduce = body.filter(function (entry) {
+        return entry.type === 'Entity' || entry.type === 'Section';
+      }).reduce(toEntries, [{}, null]);
 
-        var msg = message + ' at pos ' + pos + ': `' + context + '`';
-        var err = new L10nError(msg);
-        if (this.emit) {
-          this.emit(type, err);
-        }
-        return err;
+      var _body$filter$reduce2 = babelHelpers.slicedToArray(_body$filter$reduce, 1);
+
+      var entries = _body$filter$reduce2[0];
+
+      return { entries: entries, _errors: _errors };
+    }
+
+    var FTLEntriesParser = {
+      parseResource: function parseResource(string) {
+        var ast = ASTParser.parseResource(string);
+        return createEntriesFromAST(ast);
       }
     };
 
@@ -3059,8 +3584,7 @@
         this.resRefs = new Map();
         this.builtins = null;
         this.parsers = {
-          properties: PropertiesParser,
-          l20n: L20nParser
+          ftl: FTLEntriesParser
         };
 
         var listeners = {};
@@ -3072,12 +3596,12 @@
       babelHelpers.createClass(Env, [{
         key: 'createContext',
         value: function createContext(langs, resIds) {
-          var _this16 = this;
+          var _this36 = this;
 
           var ctx = new Context(this, langs, resIds);
           resIds.forEach(function (resId) {
-            var usedBy = _this16.resRefs.get(resId) || 0;
-            _this16.resRefs.set(resId, usedBy + 1);
+            var usedBy = _this36.resRefs.get(resId) || 0;
+            _this36.resRefs.set(resId, usedBy + 1);
           });
 
           return ctx;
@@ -3085,25 +3609,25 @@
       }, {
         key: 'destroyContext',
         value: function destroyContext(ctx) {
-          var _this17 = this;
+          var _this37 = this;
 
           ctx.resIds.forEach(function (resId) {
-            var usedBy = _this17.resRefs.get(resId) || 0;
+            var usedBy = _this37.resRefs.get(resId) || 0;
 
             if (usedBy > 1) {
-              return _this17.resRefs.set(resId, usedBy - 1);
+              return _this37.resRefs.set(resId, usedBy - 1);
             }
 
-            _this17.resRefs.delete(resId);
-            _this17.resCache.forEach(function (val, key) {
-              return key.startsWith(resId) ? _this17.resCache.delete(key) : null;
+            _this37.resRefs.delete(resId);
+            _this37.resCache.forEach(function (val, key) {
+              return key.startsWith(resId) ? _this37.resCache.delete(key) : null;
             });
           });
         }
       }, {
         key: '_parse',
         value: function _parse(syntax, lang, data) {
-          var _this18 = this;
+          var _this38 = this;
 
           var parser = this.parsers[syntax];
           if (!parser) {
@@ -3111,7 +3635,7 @@
           }
 
           var emitAndAmend = function emitAndAmend(type, err) {
-            return _this18.emit(type, amendError(lang, err));
+            return _this38.emit(type, amendError(lang, err));
           };
           return parser.parse(emitAndAmend, data);
         }
@@ -3131,7 +3655,7 @@
       }, {
         key: '_getResource',
         value: function _getResource(lang, res) {
-          var _this19 = this;
+          var _this39 = this;
 
           var cache = this.resCache;
           var id = res + lang.code + lang.src;
@@ -3143,13 +3667,13 @@
           var syntax = res.substr(res.lastIndexOf('.') + 1);
 
           var saveEntries = function saveEntries(data) {
-            var entries = _this19._parse(syntax, lang, data);
-            cache.set(id, _this19._create(lang, entries));
+            var entries = _this39._parse(syntax, lang, data);
+            cache.set(id, _this39._create(lang, entries));
           };
 
           var recover = function recover(err) {
             err.lang = lang;
-            _this19.emit('fetcherror', err);
+            _this39.emit('fetcherror', err);
             cache.set(id, err);
           };
 
@@ -3187,10 +3711,10 @@
       return [supportedLocale, def];
     }
 
-    function negotiateLanguages(_ref23, additionalLangs, prevLangs, requestedLangs) {
-      var appVersion = _ref23.appVersion;
-      var defaultLang = _ref23.defaultLang;
-      var availableLangs = _ref23.availableLangs;
+    function negotiateLanguages(_ref25, additionalLangs, prevLangs, requestedLangs) {
+      var appVersion = _ref25.appVersion;
+      var defaultLang = _ref25.defaultLang;
+      var availableLangs = _ref25.availableLangs;
 
 
       var allAvailableLangs = Object.keys(availableLangs).concat(Object.keys(additionalLangs)).concat(Object.keys(pseudo));
@@ -3304,1126 +3828,16 @@
       return Remote;
     }();
 
-    var Node$1 = function Node$1() {
-      babelHelpers.classCallCheck(this, Node$1);
-    };
-
-    var Resource$1 = function (_Node$) {
-      babelHelpers.inherits(Resource$1, _Node$);
-
-      function Resource$1() {
-        babelHelpers.classCallCheck(this, Resource$1);
-
-        var _this20 = babelHelpers.possibleConstructorReturn(this, Object.getPrototypeOf(Resource$1).call(this));
-
-        _this20.type = 'Resource';
-        _this20.body = [];
-        return _this20;
-      }
-
-      return Resource$1;
-    }(Node$1);
-
-    var Entry$1 = function (_Node$2) {
-      babelHelpers.inherits(Entry$1, _Node$2);
-
-      function Entry$1() {
-        babelHelpers.classCallCheck(this, Entry$1);
-
-        var _this21 = babelHelpers.possibleConstructorReturn(this, Object.getPrototypeOf(Entry$1).call(this));
-
-        _this21.type = 'Entry';
-        return _this21;
-      }
-
-      return Entry$1;
-    }(Node$1);
-
-    var Identifier$1 = function (_Node$3) {
-      babelHelpers.inherits(Identifier$1, _Node$3);
-
-      function Identifier$1(name) {
-        var namespace = arguments.length <= 1 || arguments[1] === undefined ? null : arguments[1];
-        babelHelpers.classCallCheck(this, Identifier$1);
-
-        var _this22 = babelHelpers.possibleConstructorReturn(this, Object.getPrototypeOf(Identifier$1).call(this));
-
-        _this22.type = 'Identifier';
-        _this22.name = name;
-        _this22.namespace = namespace;
-        return _this22;
-      }
-
-      return Identifier$1;
-    }(Node$1);
-
-    var Section = function (_Node$4) {
-      babelHelpers.inherits(Section, _Node$4);
-
-      function Section(name) {
-        var comment = arguments.length <= 1 || arguments[1] === undefined ? null : arguments[1];
-        babelHelpers.classCallCheck(this, Section);
-
-        var _this23 = babelHelpers.possibleConstructorReturn(this, Object.getPrototypeOf(Section).call(this));
-
-        _this23.type = 'Section';
-        _this23.name = name;
-        _this23.comment = comment;
-        return _this23;
-      }
-
-      return Section;
-    }(Node$1);
-
-    var Pattern$1 = function (_Node$5) {
-      babelHelpers.inherits(Pattern$1, _Node$5);
-
-      function Pattern$1(source, elements) {
-        babelHelpers.classCallCheck(this, Pattern$1);
-
-        var _this24 = babelHelpers.possibleConstructorReturn(this, Object.getPrototypeOf(Pattern$1).call(this));
-
-        _this24.type = 'Pattern';
-        _this24.source = source;
-        _this24.elements = elements;
-        return _this24;
-      }
-
-      return Pattern$1;
-    }(Node$1);
-
-    var Member = function (_Node$6) {
-      babelHelpers.inherits(Member, _Node$6);
-
-      function Member(key, value) {
-        var def = arguments.length <= 2 || arguments[2] === undefined ? false : arguments[2];
-        babelHelpers.classCallCheck(this, Member);
-
-        var _this25 = babelHelpers.possibleConstructorReturn(this, Object.getPrototypeOf(Member).call(this));
-
-        _this25.type = 'Member';
-        _this25.key = key;
-        _this25.value = value;
-        _this25.default = def;
-        return _this25;
-      }
-
-      return Member;
-    }(Node$1);
-
-    var Entity$2 = function (_Entry$) {
-      babelHelpers.inherits(Entity$2, _Entry$);
-
-      function Entity$2(id) {
-        var value = arguments.length <= 1 || arguments[1] === undefined ? null : arguments[1];
-        var traits = arguments.length <= 2 || arguments[2] === undefined ? [] : arguments[2];
-        var comment = arguments.length <= 3 || arguments[3] === undefined ? null : arguments[3];
-        babelHelpers.classCallCheck(this, Entity$2);
-
-        var _this26 = babelHelpers.possibleConstructorReturn(this, Object.getPrototypeOf(Entity$2).call(this));
-
-        _this26.type = 'Entity';
-        _this26.id = id;
-        _this26.value = value;
-        _this26.traits = traits;
-        _this26.comment = comment;
-        return _this26;
-      }
-
-      return Entity$2;
-    }(Entry$1);
-
-    var Placeable = function (_Node$7) {
-      babelHelpers.inherits(Placeable, _Node$7);
-
-      function Placeable(expressions) {
-        babelHelpers.classCallCheck(this, Placeable);
-
-        var _this27 = babelHelpers.possibleConstructorReturn(this, Object.getPrototypeOf(Placeable).call(this));
-
-        _this27.type = 'Placeable';
-        _this27.expressions = expressions;
-        return _this27;
-      }
-
-      return Placeable;
-    }(Node$1);
-
-    var SelectExpression$1 = function (_Node$8) {
-      babelHelpers.inherits(SelectExpression$1, _Node$8);
-
-      function SelectExpression$1(expression) {
-        var variants = arguments.length <= 1 || arguments[1] === undefined ? null : arguments[1];
-        babelHelpers.classCallCheck(this, SelectExpression$1);
-
-        var _this28 = babelHelpers.possibleConstructorReturn(this, Object.getPrototypeOf(SelectExpression$1).call(this));
-
-        _this28.type = 'SelectExpression';
-        _this28.expression = expression;
-        _this28.variants = variants;
-        return _this28;
-      }
-
-      return SelectExpression$1;
-    }(Node$1);
-
-    var MemberExpression$1 = function (_Node$9) {
-      babelHelpers.inherits(MemberExpression$1, _Node$9);
-
-      function MemberExpression$1(idref, keyword) {
-        babelHelpers.classCallCheck(this, MemberExpression$1);
-
-        var _this29 = babelHelpers.possibleConstructorReturn(this, Object.getPrototypeOf(MemberExpression$1).call(this));
-
-        _this29.type = 'MemberExpression';
-        _this29.idref = idref;
-        _this29.keyword = keyword;
-        return _this29;
-      }
-
-      return MemberExpression$1;
-    }(Node$1);
-
-    var CallExpression$2 = function (_Node$10) {
-      babelHelpers.inherits(CallExpression$2, _Node$10);
-
-      function CallExpression$2(callee, args) {
-        babelHelpers.classCallCheck(this, CallExpression$2);
-
-        var _this30 = babelHelpers.possibleConstructorReturn(this, Object.getPrototypeOf(CallExpression$2).call(this));
-
-        _this30.type = 'CallExpression';
-        _this30.callee = callee;
-        _this30.args = args;
-        return _this30;
-      }
-
-      return CallExpression$2;
-    }(Node$1);
-
-    var ExternalArgument$1 = function (_Node$11) {
-      babelHelpers.inherits(ExternalArgument$1, _Node$11);
-
-      function ExternalArgument$1(id) {
-        babelHelpers.classCallCheck(this, ExternalArgument$1);
-
-        var _this31 = babelHelpers.possibleConstructorReturn(this, Object.getPrototypeOf(ExternalArgument$1).call(this));
-
-        _this31.type = 'ExternalArgument';
-        _this31.id = id;
-        return _this31;
-      }
-
-      return ExternalArgument$1;
-    }(Node$1);
-
-    var KeyValueArg$1 = function (_Node$12) {
-      babelHelpers.inherits(KeyValueArg$1, _Node$12);
-
-      function KeyValueArg$1(id, value) {
-        babelHelpers.classCallCheck(this, KeyValueArg$1);
-
-        var _this32 = babelHelpers.possibleConstructorReturn(this, Object.getPrototypeOf(KeyValueArg$1).call(this));
-
-        _this32.type = 'KeyValueArg';
-        _this32.id = id;
-        _this32.value = value;
-        return _this32;
-      }
-
-      return KeyValueArg$1;
-    }(Node$1);
-
-    var EntityReference$1 = function (_Identifier$) {
-      babelHelpers.inherits(EntityReference$1, _Identifier$);
-
-      function EntityReference$1(name, namespace) {
-        babelHelpers.classCallCheck(this, EntityReference$1);
-
-        var _this33 = babelHelpers.possibleConstructorReturn(this, Object.getPrototypeOf(EntityReference$1).call(this));
-
-        _this33.type = 'EntityReference';
-        _this33.name = name;
-        _this33.namespace = namespace;
-        return _this33;
-      }
-
-      return EntityReference$1;
-    }(Identifier$1);
-
-    var BuiltinReference$1 = function (_Identifier$2) {
-      babelHelpers.inherits(BuiltinReference$1, _Identifier$2);
-
-      function BuiltinReference$1(name, namespace) {
-        babelHelpers.classCallCheck(this, BuiltinReference$1);
-
-        var _this34 = babelHelpers.possibleConstructorReturn(this, Object.getPrototypeOf(BuiltinReference$1).call(this));
-
-        _this34.type = 'BuiltinReference';
-        _this34.name = name;
-        _this34.namespace = namespace;
-        return _this34;
-      }
-
-      return BuiltinReference$1;
-    }(Identifier$1);
-
-    var Keyword = function (_Identifier$3) {
-      babelHelpers.inherits(Keyword, _Identifier$3);
-
-      function Keyword(name) {
-        var namespace = arguments.length <= 1 || arguments[1] === undefined ? null : arguments[1];
-        babelHelpers.classCallCheck(this, Keyword);
-
-        var _this35 = babelHelpers.possibleConstructorReturn(this, Object.getPrototypeOf(Keyword).call(this));
-
-        _this35.type = 'Keyword';
-        _this35.name = name;
-        _this35.namespace = namespace;
-        return _this35;
-      }
-
-      return Keyword;
-    }(Identifier$1);
-
-    var Number = function (_Node$13) {
-      babelHelpers.inherits(Number, _Node$13);
-
-      function Number(value) {
-        babelHelpers.classCallCheck(this, Number);
-
-        var _this36 = babelHelpers.possibleConstructorReturn(this, Object.getPrototypeOf(Number).call(this));
-
-        _this36.type = 'Number';
-        _this36.value = value;
-        return _this36;
-      }
-
-      return Number;
-    }(Node$1);
-
-    var TextElement = function (_Node$14) {
-      babelHelpers.inherits(TextElement, _Node$14);
-
-      function TextElement(value) {
-        babelHelpers.classCallCheck(this, TextElement);
-
-        var _this37 = babelHelpers.possibleConstructorReturn(this, Object.getPrototypeOf(TextElement).call(this));
-
-        _this37.type = 'TextElement';
-        _this37.value = value;
-        return _this37;
-      }
-
-      return TextElement;
-    }(Node$1);
-
-    var Comment$1 = function (_Node$15) {
-      babelHelpers.inherits(Comment$1, _Node$15);
-
-      function Comment$1(content) {
-        babelHelpers.classCallCheck(this, Comment$1);
-
-        var _this38 = babelHelpers.possibleConstructorReturn(this, Object.getPrototypeOf(Comment$1).call(this));
-
-        _this38.type = 'Comment';
-        _this38.content = content;
-        return _this38;
-      }
-
-      return Comment$1;
-    }(Node$1);
-
-    var JunkEntry$1 = function (_Entry$2) {
-      babelHelpers.inherits(JunkEntry$1, _Entry$2);
-
-      function JunkEntry$1(content) {
-        babelHelpers.classCallCheck(this, JunkEntry$1);
-
-        var _this39 = babelHelpers.possibleConstructorReturn(this, Object.getPrototypeOf(JunkEntry$1).call(this));
-
-        _this39.type = 'JunkEntry';
-        _this39.content = content;
-        return _this39;
-      }
-
-      return JunkEntry$1;
-    }(Entry$1);
-
-    var AST$1 = {
-      Node: Node$1,
-      Pattern: Pattern$1,
-      Member: Member,
-      Identifier: Identifier$1,
-      Entity: Entity$2,
-      Section: Section,
-      Resource: Resource$1,
-      Placeable: Placeable,
-      SelectExpression: SelectExpression$1,
-      MemberExpression: MemberExpression$1,
-      CallExpression: CallExpression$2,
-      ExternalArgument: ExternalArgument$1,
-      KeyValueArg: KeyValueArg$1,
-      Number: Number,
-      EntityReference: EntityReference$1,
-      BuiltinReference: BuiltinReference$1,
-      Keyword: Keyword,
-      TextElement: TextElement,
-      Comment: Comment$1,
-      JunkEntry: JunkEntry$1
-    };
-
-    var ParseContext$1 = function () {
-      function ParseContext$1(string) {
-        babelHelpers.classCallCheck(this, ParseContext$1);
-
-        this._source = string;
-        this._index = 0;
-        this._length = string.length;
-
-        this._lastGoodEntryEnd = 0;
-        this._section = null;
-      }
-
-      babelHelpers.createClass(ParseContext$1, [{
-        key: 'getResource',
-        value: function getResource() {
-          var resource = new AST$1.Resource();
-          resource._errors = [];
-
-          this.getWS();
-          while (this._index < this._length) {
-            try {
-              resource.body.push(this.getEntry());
-              this._lastGoodEntryEnd = this._index;
-            } catch (e) {
-              if (e instanceof L10nError) {
-                resource._errors.push(e);
-                resource.body.push(this.getJunkEntry());
-              } else {
-                throw e;
-              }
-            }
-            this.getWS();
-          }
-
-          return resource;
-        }
-      }, {
-        key: 'getEntry',
-        value: function getEntry() {
-          if (this._index !== 0 && this._source[this._index - 1] !== '\n') {
-            throw this.error('Expected new line and a new entry');
-          }
-
-          var comment = void 0;
-
-          if (this._source[this._index] === '#') {
-            comment = this.getComment();
-          }
-
-          this.getLineWS();
-
-          if (this._source[this._index] === '[') {
-            return this.getSection(comment);
-          }
-
-          if (this._index < this._length && this._source[this._index] !== '\n') {
-            return this.getEntity(comment);
-          }
-          return comment;
-        }
-      }, {
-        key: 'getSection',
-        value: function getSection() {
-          var comment = arguments.length <= 0 || arguments[0] === undefined ? null : arguments[0];
-
-          this._index += 1;
-          if (this._source[this._index] !== '[') {
-            throw this.error('Expected "[[" to open a section');
-          }
-
-          this._index += 1;
-
-          this.getLineWS();
-
-          var id = this.getIdentifier();
-
-          this.getLineWS();
-
-          if (this._source[this._index] !== ']' || this._source[this._index + 1] !== ']') {
-            throw this.error('Expected "]]" to close a section');
-          }
-
-          this._index += 2;
-
-          this._section = id;
-
-          return new AST$1.Section(id, comment);
-        }
-      }, {
-        key: 'getEntity',
-        value: function getEntity() {
-          var comment = arguments.length <= 0 || arguments[0] === undefined ? null : arguments[0];
-
-          var id = this.getIdentifier(':');
-
-          var members = [];
-          var value = null;
-
-          this.getLineWS();
-
-          var ch = this._source[this._index];
-
-          if (ch !== '=') {
-            throw this.error('Expected "=" after Entity ID');
-          }
-          ch = this._source[++this._index];
-
-          this.getLineWS();
-
-          value = this.getPattern();
-
-          ch = this._source[this._index];
-
-          if (ch === '\n') {
-            this._index++;
-            this.getLineWS();
-            ch = this._source[this._index];
-          }
-
-          if (ch === '[' && this._source[this._index + 1] !== '[' || ch === '*') {
-            members = this.getMembers();
-          } else if (value === null) {
-            throw this.error('Expected a value (like: " = value") or a trait (like: "[key] value")');
-          }
-
-          return new AST$1.Entity(id, value, members, comment);
-        }
-      }, {
-        key: 'getWS',
-        value: function getWS() {
-          var cc = this._source.charCodeAt(this._index);
-
-          while (cc === 32 || cc === 10 || cc === 9 || cc === 13) {
-            cc = this._source.charCodeAt(++this._index);
-          }
-        }
-      }, {
-        key: 'getLineWS',
-        value: function getLineWS() {
-          var cc = this._source.charCodeAt(this._index);
-
-          while (cc === 32 || cc === 9) {
-            cc = this._source.charCodeAt(++this._index);
-          }
-        }
-      }, {
-        key: 'getIdentifier',
-        value: function getIdentifier() {
-          var nsSep = arguments.length <= 0 || arguments[0] === undefined ? null : arguments[0];
-
-          var namespace = null;
-          var id = '';
-
-          if (nsSep) {
-            namespace = this.getIdentifier().name;
-            if (this._source[this._index] === nsSep) {
-              this._index++;
-            } else if (namespace) {
-              id = namespace;
-              namespace = null;
-            }
-          }
-
-          var start = this._index;
-          var cc = this._source.charCodeAt(this._index);
-
-          if (cc >= 97 && cc <= 122 || cc >= 65 && cc <= 90 || cc === 95) {
-            cc = this._source.charCodeAt(++this._index);
-          } else if (id.length === 0) {
-            throw this.error('Expected an identifier (starting with [a-zA-Z_])');
-          }
-
-          while (cc >= 97 && cc <= 122 || cc >= 65 && cc <= 90 || cc >= 48 && cc <= 57 || cc === 95 || cc === 45) {
-            cc = this._source.charCodeAt(++this._index);
-          }
-
-          id += this._source.slice(start, this._index);
-
-          return new AST$1.Identifier(id, namespace);
-        }
-      }, {
-        key: 'getIdentifierWithSpace',
-        value: function getIdentifierWithSpace() {
-          var nsSep = arguments.length <= 0 || arguments[0] === undefined ? null : arguments[0];
-
-          var namespace = null;
-          var id = '';
-
-          if (nsSep) {
-            namespace = this.getIdentifier().name;
-            if (this._source[this._index] === nsSep) {
-              this._index++;
-            } else if (namespace) {
-              id = namespace;
-              namespace = null;
-            }
-          }
-
-          var start = this._index;
-          var cc = this._source.charCodeAt(this._index);
-
-          if (cc >= 97 && cc <= 122 || cc >= 65 && cc <= 90 || cc === 95 || cc === 32) {
-            cc = this._source.charCodeAt(++this._index);
-          } else if (id.length === 0) {
-            throw this.error('Expected an identifier (starting with [a-zA-Z_])');
-          }
-
-          while (cc >= 97 && cc <= 122 || cc >= 65 && cc <= 90 || cc >= 48 && cc <= 57 || cc === 95 || cc === 45 || cc === 32) {
-            cc = this._source.charCodeAt(++this._index);
-          }
-
-          id += this._source.slice(start, this._index);
-
-          return new AST$1.Identifier(id, namespace);
-        }
-      }, {
-        key: 'getPattern',
-        value: function getPattern() {
-          var buffer = '';
-          var source = '';
-          var content = [];
-          var quoteDelimited = false;
-          var firstLine = true;
-
-          var ch = this._source[this._index];
-
-          if (ch === '\\' && (this._source[this._index + 1] === '"' || this._source[this._index + 1] === '{' || this._source[this._index + 1] === '\\')) {
-            buffer += this._source[this._index + 1];
-            this._index += 2;
-            ch = this._source[this._index];
-          } else if (ch === '"') {
-            quoteDelimited = true;
-            this._index++;
-            ch = this._source[this._index];
-          }
-
-          while (this._index < this._length) {
-            if (ch === '\n') {
-              if (quoteDelimited) {
-                throw this.error('Unclosed string');
-              }
-              this._index++;
-              this.getLineWS();
-              if (this._source[this._index] !== '|') {
-                break;
-              }
-              if (firstLine && buffer.length) {
-                throw this.error('Multiline string should have the ID line empty');
-              }
-              firstLine = false;
-              this._index++;
-              if (this._source[this._index] === ' ') {
-                this._index++;
-              }
-              if (buffer.length) {
-                buffer += '\n';
-              }
-              ch = this._source[this._index];
-              continue;
-            } else if (ch === '\\') {
-              var ch2 = this._source[this._index + 1];
-              if (quoteDelimited && ch2 === '"' || ch2 === '{') {
-                ch = ch2;
-                this._index++;
-              }
-            } else if (quoteDelimited && ch === '"') {
-              this._index++;
-              break;
-            } else if (ch === '{') {
-              if (buffer.length) {
-                content.push(new AST$1.TextElement(buffer));
-              }
-              source += buffer;
-              buffer = '';
-              var start = this._index;
-              content.push(this.getPlaceable());
-              source += this._source.substring(start, this._index);
-              ch = this._source[this._index];
-              continue;
-            }
-
-            if (ch) {
-              buffer += ch;
-            }
-            this._index++;
-            ch = this._source[this._index];
-          }
-
-          if (buffer.length) {
-            source += buffer;
-            content.push(new AST$1.TextElement(buffer));
-          }
-
-          if (content.length === 0) {
-            if (quoteDelimited) {
-              content.push(new AST$1.TextElement(source));
-            } else {
-              return null;
-            }
-          }
-
-          return new AST$1.Pattern(source, content);
-        }
-      }, {
-        key: 'getPlaceable',
-        value: function getPlaceable() {
-          this._index++;
-
-          var expressions = [];
-
-          this.getLineWS();
-
-          while (this._index < this._length) {
-            var start = this._index;
-            try {
-              expressions.push(this.getPlaceableExpression());
-            } catch (e) {
-              throw this.error(e.description, start);
-            }
-            this.getWS();
-            if (this._source[this._index] === '}') {
-              this._index++;
-              break;
-            } else if (this._source[this._index] === ',') {
-              this._index++;
-              this.getWS();
-            } else {
-              throw this.error('Expected "}" or ","');
-            }
-          }
-
-          return new AST$1.Placeable(expressions);
-        }
-      }, {
-        key: 'getPlaceableExpression',
-        value: function getPlaceableExpression() {
-          var selector = this.getCallExpression();
-          var members = null;
-
-          this.getWS();
-
-          if (this._source[this._index] !== '}' && this._source[this._index] !== ',') {
-            if (this._source[this._index] !== '-' || this._source[this._index + 1] !== '>') {
-              throw this.error('Expected "}", "," or "->"');
-            }
-            this._index += 2;
-
-            this.getLineWS();
-
-            if (this._source[this._index] !== '\n') {
-              throw this.error('Members should be listed in a new line');
-            }
-
-            this.getWS();
-
-            members = this.getMembers();
-
-            if (members.length === 0) {
-              throw this.error('Expected members for the select expression');
-            }
-          }
-
-          if (members === null) {
-            return selector;
-          }
-          return new AST$1.SelectExpression(selector, members);
-        }
-      }, {
-        key: 'getCallExpression',
-        value: function getCallExpression() {
-          var exp = this.getMemberExpression();
-
-          if (this._source[this._index] !== '(') {
-            return exp;
-          }
-
-          this._index++;
-
-          var args = this.getCallArgs();
-
-          this._index++;
-
-          if (exp instanceof AST$1.EntityReference) {
-            exp = new AST$1.BuiltinReference(exp.name, exp.namespace);
-          }
-
-          return new AST$1.CallExpression(exp, args);
-        }
-      }, {
-        key: 'getCallArgs',
-        value: function getCallArgs() {
-          var args = [];
-
-          if (this._source[this._index] === ')') {
-            return args;
-          }
-
-          while (this._index < this._length) {
-            this.getLineWS();
-
-            var exp = this.getCallExpression();
-
-            if (!(exp instanceof AST$1.EntityReference) || exp.namespace !== null) {
-              args.push(exp);
-            } else {
-              this.getLineWS();
-
-              if (this._source[this._index] === '=') {
-                this._index++;
-                this.getLineWS();
-
-                var val = this.getCallExpression();
-
-                if (val instanceof AST$1.EntityReference || val instanceof AST$1.MemberExpression) {
-                  this._index = this._source.lastIndexOf('=', this._index) + 1;
-                  throw this.error('Expected string in quotes');
-                }
-
-                args.push(new AST$1.KeyValueArg(exp.name, val));
-              } else {
-                args.push(exp);
-              }
-            }
-
-            this.getLineWS();
-
-            if (this._source[this._index] === ')') {
-              break;
-            } else if (this._source[this._index] === ',') {
-              this._index++;
-            } else {
-              throw this.error('Expected "," or ")"');
-            }
-          }
-
-          return args;
-        }
-      }, {
-        key: 'getNumber',
-        value: function getNumber() {
-          var num = '';
-          var cc = this._source.charCodeAt(this._index);
-
-          if (cc === 45) {
-            num += '-';
-            cc = this._source.charCodeAt(++this._index);
-          }
-
-          if (cc < 48 || cc > 57) {
-            throw this.error('Unknown literal "' + num + '"');
-          }
-
-          while (cc >= 48 && cc <= 57) {
-            num += this._source[this._index++];
-            cc = this._source.charCodeAt(this._index);
-          }
-
-          if (cc === 46) {
-            num += this._source[this._index++];
-            cc = this._source.charCodeAt(this._index);
-
-            if (cc < 48 || cc > 57) {
-              throw this.error('Unknown literal "' + num + '"');
-            }
-
-            while (cc >= 48 && cc <= 57) {
-              num += this._source[this._index++];
-              cc = this._source.charCodeAt(this._index);
-            }
-          }
-
-          return new AST$1.Number(num);
-        }
-      }, {
-        key: 'getMemberExpression',
-        value: function getMemberExpression() {
-          var exp = this.getLiteral();
-
-          if (this._source[this._index] !== '[') {
-            return exp;
-          }
-          var keyword = this.getKeyword();
-          return new AST$1.MemberExpression(exp, keyword);
-        }
-      }, {
-        key: 'getMembers',
-        value: function getMembers() {
-          var members = [];
-
-          while (this._index < this._length) {
-            if ((this._source[this._index] !== '[' || this._source[this._index + 1] === '[') && this._source[this._index] !== '*') {
-              break;
-            }
-            var def = false;
-            if (this._source[this._index] === '*') {
-              this._index++;
-              def = true;
-            }
-
-            if (this._source[this._index] !== '[') {
-              throw this.error('Expected "["');
-            }
-
-            var key = this.getKeyword();
-
-            this.getLineWS();
-
-            var value = this.getPattern();
-
-            var member = new AST$1.Member(key, value, def);
-
-            members.push(member);
-
-            this.getWS();
-          }
-
-          return members;
-        }
-      }, {
-        key: 'getKeyword',
-        value: function getKeyword() {
-          this._index++;
-
-          var cc = this._source.charCodeAt(this._index);
-          var literal = void 0;
-
-          if (cc >= 48 && cc <= 57 || cc === 45) {
-            literal = this.getNumber();
-          } else {
-            literal = this.getIdentifierWithSpace(':');
-          }
-
-          if (this._source[this._index] !== ']') {
-            throw this.error('Expected "]"');
-          }
-
-          this._index++;
-          return literal;
-        }
-      }, {
-        key: 'getLiteral',
-        value: function getLiteral() {
-          var cc = this._source.charCodeAt(this._index);
-          if (cc >= 48 && cc <= 57 || cc === 45) {
-            return this.getNumber();
-          } else if (cc === 34) {
-            return this.getPattern();
-          } else if (cc === 36) {
-            this._index++;
-            var _id = this.getIdentifier();
-            return new AST$1.ExternalArgument(_id.name);
-          }
-
-          var id = this.getIdentifier(':');
-          return new AST$1.EntityReference(id.name, id.namespace);
-        }
-      }, {
-        key: 'getComment',
-        value: function getComment() {
-          this._index++;
-          if (this._source[this._index] === ' ') {
-            this._index++;
-          }
-
-          var content = '';
-
-          var eol = this._source.indexOf('\n', this._index);
-
-          content += this._source.substring(this._index, eol);
-
-          while (eol !== -1 && this._source[eol + 1] === '#') {
-            this._index = eol + 2;
-
-            if (this._source[this._index] === ' ') {
-              this._index++;
-            }
-
-            eol = this._source.indexOf('\n', this._index);
-
-            if (eol === -1) {
-              break;
-            }
-
-            content += '\n' + this._source.substring(this._index, eol);
-          }
-
-          if (eol === -1) {
-            this._index = this._length;
-          } else {
-            this._index = eol + 1;
-          }
-
-          return new AST$1.Comment(content);
-        }
-      }, {
-        key: 'error',
-        value: function error(message) {
-          var start = arguments.length <= 1 || arguments[1] === undefined ? null : arguments[1];
-
-          var colors = require('colors/safe');
-
-          var pos = this._index;
-
-          if (start === null) {
-            start = pos;
-          }
-          start = this._findEntityStart(start);
-
-          var context = this._source.slice(start, pos + 10);
-
-          var msg = '\n\n  ' + message + '\nat pos ' + pos + ':\n------\n…' + context + '\n------';
-          var err = new L10nError(msg);
-
-          var row = this._source.slice(0, pos).split('\n').length;
-          var col = pos - this._source.lastIndexOf('\n', pos - 1);
-          err._pos = { start: pos, end: undefined, col: col, row: row };
-          err.offset = pos - start;
-          err.description = message;
-          err.context = context;
-          return err;
-        }
-      }, {
-        key: 'getJunkEntry',
-        value: function getJunkEntry() {
-          var pos = this._index;
-
-          var nextEntity = this._findNextEntryStart(pos);
-
-          if (nextEntity === -1) {
-            nextEntity = this._length;
-          }
-
-          this._index = nextEntity;
-
-          var entityStart = this._findEntityStart(pos);
-
-          if (entityStart < this._lastGoodEntryEnd) {
-            entityStart = this._lastGoodEntryEnd;
-          }
-
-          var junk = new AST$1.JunkEntry(this._source.slice(entityStart, nextEntity));
-          return junk;
-        }
-      }, {
-        key: '_findEntityStart',
-        value: function _findEntityStart(pos) {
-          var start = pos;
-
-          while (true) {
-            start = this._source.lastIndexOf('\n', start - 2);
-            if (start === -1 || start === 0) {
-              start = 0;
-              break;
-            }
-            var cc = this._source.charCodeAt(start + 1);
-
-            if (cc >= 97 && cc <= 122 || cc >= 65 && cc <= 90 || cc === 95) {
-              start++;
-              break;
-            }
-          }
-
-          return start;
-        }
-      }, {
-        key: '_findNextEntryStart',
-        value: function _findNextEntryStart(pos) {
-          var start = pos;
-
-          while (true) {
-            if (start === 0 || this._source[start - 1] === '\n') {
-              var cc = this._source.charCodeAt(start);
-
-              if (cc >= 97 && cc <= 122 || cc >= 65 && cc <= 90 || cc === 95 || cc === 35 || cc === 91) {
-                break;
-              }
-            }
-
-            start = this._source.indexOf('\n', start);
-
-            if (start === -1) {
-              break;
-            }
-            start++;
-          }
-
-          return start;
-        }
-      }]);
-      return ParseContext$1;
-    }();
-
-    var FTLParser = {
-      parseResource: function parseResource(string) {
-        var parseContext = new ParseContext$1(string);
-        return parseContext.getResource();
-      }
-    };
-
-    function toEntries(_ref24, entry) {
-      var _ref25 = babelHelpers.slicedToArray(_ref24, 2);
-
-      var entries = _ref25[0];
-      var curSection = _ref25[1];
-
-      if (entry.type === 'Section') {
-        return [entries, entry.name];
-      }
-
-      if (curSection && !entry.ns) {
-        entry.ns = curSection;
-      }
-
-      return [Object.assign(entries, babelHelpers.defineProperty({}, getId(entry), entry)), curSection];
-    }
-
-    function getId(entry) {
-      return (entry.id.namespace || '') + ':' + entry.id.name;
-    }
-
     var lang = {
       code: 'en-US',
       src: 'app'
     };
 
-    function createEntriesFromSource(source) {
-      var ast = FTLParser.parseResource(source);
-      return createEntriesFromAST(ast);
-    }
-
-    function createEntriesFromAST(ast) {
-      var _ast$body$filter$redu = ast.body.filter(function (entry) {
-        return entry.type === 'Entity' || entry.type === 'Section';
-      }).reduce(toEntries, [{}, null]);
-
-      var _ast$body$filter$redu2 = babelHelpers.slicedToArray(_ast$body$filter$redu, 1);
-
-      var entries = _ast$body$filter$redu2[0];
-
-      return entries;
-    }
-
     function MockContext(entries) {
       return {
         env: {},
-        _getEntity: function _getEntity(lang, _ref26) {
-          var namespace = _ref26.namespace;
-          var name = _ref26.name;
-
-          var id = (namespace || '') + ':' + name;
-          return entries[id];
+        _getEntity: function _getEntity(lang, name) {
+          return entries[name];
         },
 
         _memoizeIntlObject: Context.prototype._memoizeIntlObject
@@ -4432,10 +3846,10 @@
 
     window.L20n = {
       fetchResource: fetchResource, Client: Client, Remote: Remote, View: View, broadcast: broadcast,
-      FTLASTParser: FTLParser,
+      FTLASTParser: ASTParser, FTLEntriesParser: FTLEntriesParser, createEntriesFromAST: createEntriesFromAST,
       Context: Context, Env: Env, L10nError: L10nError, emit: emit, addEventListener: addEventListener, removeEventListener: removeEventListener,
-      prioritizeLocales: prioritizeLocales, MockContext: MockContext, lang: lang, getPluralRule: getPluralRule, walkEntry: walkEntry, walkValue: walkValue,
-      createEntriesFromSource: createEntriesFromSource, createEntriesFromAST: createEntriesFromAST, pseudo: pseudo, format: format
+      prioritizeLocales: prioritizeLocales, MockContext: MockContext, lang: lang,
+      walkEntry: walkEntry, walkValue: walkValue, pseudo: pseudo, format: format
     };
   })();
 
