@@ -95,7 +95,7 @@ $(function() {
   source.getSession().setUseWrapMode(true);
   source.getSession().setOption("useWorker", false);
   source.setTheme("ace/theme/solarized_light");
-  source.getSession().setMode("ace/mode/properties");
+  source.getSession().setMode("ace/mode/ft");
   source.getSession().on('change', update);
 
   var context = ace.edit("context");
