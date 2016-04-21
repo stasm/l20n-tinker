@@ -13,16 +13,16 @@ var FtHighlightRules = function() {
                 regex : /#.*$/
             },
             {
-                token : "string",
+                token : "keyword",
                 regex : /\*?\[.*]/,
                 push  : "value"
             },
             {
-                token : "entity.name.function",
+                token : "entity.name.tag",
                 regex : /(.*=)\s*$/,
             },
             {
-                token : "entity.name.function",
+                token : "entity.name.tag",
                 regex : /(.*=)/,
                 push  : "value"
             },
@@ -32,47 +32,42 @@ var FtHighlightRules = function() {
                 push : "value"
             },
             {
-                defaultToken: "invalid"
-            }
-        ],
-        "value" : [
-            {
-                regex : /{/,
-                token : "variable",
-                push : "placeable"
-            },
-            {
-                regex : /$/,
-                token : "string",
-                next : "pop"
-            },
-            {
-                defaultToken: "storage"
+                defaultToken: "string"
             }
         ],
         "placeable" : [
             {
-                token : "keyword",
-                regex : /^\s*\[.*]/,
-                push  : "value"
-            },
-            {
-                token : "keyword",
+                token : "entity.other",
                 regex : /^\s*\*?\[.*]/,
                 push  : "value"
             },
             {
                 regex : /{/,
-                token : "variable",
+                token : "variable.parameter",
                 push : "placeable"
             },
             {
                 regex : /}/,
-                token : "variable",
+                token : "variable.parameter",
                 next : "pop"
             },
             {
-                defaultToken: "variable"
+                defaultToken: "variable.parameter"
+            }
+        ],
+        "value" : [
+            {
+                regex : /{/,
+                token : "variable.parameter",
+                push : "placeable"
+            },
+            {
+                regex : /^/,
+                token : "string",
+                next : "pop"
+            },
+            {
+                defaultToken: "string"
             }
         ],
     };

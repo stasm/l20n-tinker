@@ -76,14 +76,6 @@ label {
   overflow-y: auto !important;
 }
 
-.ace_line {
-  color: #999999 !important;
-}
-
-.ace_entity {
-  color: #D33682 !important;
-}
-
 dl {
   margin: 0;
 }
