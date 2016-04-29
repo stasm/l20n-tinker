@@ -201,6 +201,4 @@ $(function() {
     config.lang = $(this).val();
     update();
   });
-
-  window.addEventListener("resize", update);
 });
