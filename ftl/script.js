@@ -5,13 +5,6 @@ $(function() {
     lang: 'en-US',
   };
 
-  function getPrettyId(entry) {
-    return entry.id.namespace ?
-      `${entry.id.namespace}:${entry.id.name}` :
-      entry.id.name;
-  }
-
-
   /* L20n */
 
   function update() {
@@ -26,13 +19,13 @@ $(function() {
 
     var code = source.getValue();
     try {
-      var ast = L20n.FTLASTParser.parseResource(code);
-      var runtime = L20n.createEntriesFromAST(ast);
+      var [resource, errors] = L20n.FTLASTParser.parseResource(code);
+      var [entries] = L20n.createEntriesFromAST([resource, errors]);
     } catch(e) {
       logUnexpected(e);
     }
 
-    ast._errors.forEach(e => {
+    errors.forEach(e => {
       $("#errors").append(
         "<dt>" + e.name + " in line " + e._pos.row + ", column " + e._pos.col +"</dt>" +
         "<dd>" + escapeHtml(e.description) + "</dd>" +
@@ -40,7 +33,7 @@ $(function() {
       );
     });
 
-    const anots = ast._errors.map(e => ({
+    const anots = errors.map(e => ({
       type: 'error',
       text: e.message,
       row: e._pos.row - 1,
@@ -49,10 +42,11 @@ $(function() {
 
     source.getSession().setAnnotations(anots);
 
-    var lang = { code: config.lang };
-    var ctx = new L20n.MockContext(runtime.entries);
+    print(resource.body, new L20n.MockContext(entries), args, entries);
+  }
 
-    for (var entry of ast.body) {
+  function print(body, ctx, args, entries) {
+    for (let entry of body) {
       if (entry.type === 'Comment') {
         continue;
       }
@@ -65,10 +59,17 @@ $(function() {
         continue;
       }
 
+      if (entry.type === 'Section') {
+        print(entry.body, ctx, args, entries);
+        continue;
+      }
+
       if (entry.type === 'Entity') {
-        var id = getPrettyId(entry);
+        const lang = { code: config.lang };
+        const id = entry.id.name;
+
         try {
-          var result = L20n.format(ctx, lang, args, runtime.entries[id]);
+          const result = L20n.format(ctx, lang, args, entries[id]);
           $("#output").append(
             "<div><dt><code>" + id + "</code></dt>" +
             "<dd>" + escapeHtml(result[1]) + "</dd></div>"
@@ -109,7 +110,6 @@ $(function() {
 
   /* Errors */
 
-  function noop() { }
   function logUnexpected(e) {
     $("#errors").append(
       "<dt>" + e.name + "</dt><dd>" + escapeHtml(e.message) + "</dd>"
